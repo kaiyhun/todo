@@ -92,8 +92,27 @@ export const createTaskSchema = z.object({
 });
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 
-/** All create fields become optional on update; `.partial()` keeps types honest. */
-export const updateTaskSchema = createTaskSchema.partial();
+/**
+ * Fields accepted when editing a task. Every field is optional and **absent means
+ * "leave unchanged"**.
+ *
+ * Deliberately spelled out rather than derived via `createTaskSchema.partial()`:
+ * the create schema's `.default()`s would silently reset omitted fields, and its
+ * `dueDate` transform cannot distinguish "not provided" from "cleared". Here
+ * `dueDate` stays a raw string so the action can tell `undefined` (leave alone)
+ * apart from `null`/`""` (clear it).
+ */
+export const updateTaskSchema = z.object({
+  title: z.string().trim().min(1, "Title is required").max(200).optional(),
+  description: z.string().trim().max(10_000).optional(),
+  status: z.enum(TASK_STATUSES).optional(),
+  priority: z.enum(PRIORITIES).optional(),
+  /** Moving a task to another epic re-parents it — same as a vertical drag. */
+  epicId: objectIdSchema.optional(),
+  assigneeIds: z.array(objectIdSchema).optional(),
+  labels: z.array(z.string().trim().min(1).max(40)).optional(),
+  dueDate: z.string().nullable().optional(),
+});
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 
 /**

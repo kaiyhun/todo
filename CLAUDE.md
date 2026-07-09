@@ -22,10 +22,20 @@ Deploys on Vercel Hobby. Full plan: `IMPLEMENTATION_PLAN.md`.
 - **Models** (`src/lib/models/*`): each entity has a `*Doc` (Mongo shape), a plain
   `*` DTO, a `serializeX()` mapper, and zod schemas. Never pass `ObjectId`/`Date`
   to Client Components — serialize first.
-- **Client-safe modules**: `models/enums.ts` and `models/epic-progress.ts` have no
-  imports on purpose. Import shared constants/rollup logic from those in Client
-  Components — never from `models/index.ts` (pulls in zod + the Mongo driver).
+- **Client-safe modules**: `models/enums.ts`, `models/epic-progress.ts`,
+  `board-types.ts` and `task-types.ts` have no runtime imports on purpose. Import
+  shared constants/types from those in Client Components — never from
+  `models/index.ts` (pulls in zod + the Mongo driver).
 - **dnd-kit**: `DndContext` must have an explicit `id` or SSR hydration breaks.
+- **Update schemas are written out by hand**, never `createX.partial()` — the
+  create schema's `.default()`s would silently reset omitted fields.
+- **Never spread a patch straight into `$set`.** The Mongo driver serialises
+  `undefined` as `null`, blanking fields the user never touched. Build `$set` from
+  defined keys only (see `updateTaskAction`).
+- **Task detail** is one form rendered by two routes: `tasks/[taskId]` (full page)
+  and the intercepting `@modal/(.)tasks/[taskId]` (dialog). Keep them in sync.
+- Filters/views live in the **URL** (`?sprint=`, `?q=`, `?status=`…) and are applied
+  server-side. Escape any user string before putting it in a `$regex`.
 - **DB access** goes through typed accessors in `src/lib/db/collections.ts`.
 - **Auth is split**: `src/auth.config.ts` is edge‑safe (used by `src/proxy.ts`,
   no DB); `src/auth.ts` adds the Credentials provider (Node runtime only). Don't

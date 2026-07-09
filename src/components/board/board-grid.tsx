@@ -31,6 +31,7 @@ import {
 } from "@/lib/models/epic-progress";
 import { TASK_STATUSES, TASK_STATUS_LABELS } from "@/lib/models/enums";
 import type { Task } from "@/lib/models/task";
+import type { Sprint } from "@/lib/models/sprint";
 import { BoardCell } from "./board-cell";
 import { EpicRowHeader } from "./epic-row-header";
 import { TaskCardView } from "./task-card";
@@ -66,9 +67,12 @@ function resolveTarget(
 export function BoardGrid({
   rows: serverRows,
   members,
+  sprints,
 }: {
   rows: BoardRow[];
   members: BoardMember[];
+  /** Passed through to each row's Edit dialog, which can move an epic's sprint. */
+  sprints: Sprint[];
 }) {
   const [rows, setRows] = useState<BoardRowState[]>(() => toRowState(serverRows));
   const [syncedServerRows, setSyncedServerRows] = useState(serverRows);
@@ -105,7 +109,12 @@ export function BoardGrid({
   const sensors = useSensors(
     // A small threshold so a click on a card isn't swallowed as a drag.
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+      // Space picks a card up. Enter is left free so it can open the task —
+      // by default dnd-kit would claim both.
+      keyboardCodes: { start: ["Space"], cancel: ["Escape"], end: ["Space"] },
+    }),
   );
 
   /** Derived epic status + progress, recomputed live as cards move. */
@@ -271,6 +280,7 @@ export function BoardGrid({
               epic={row.epic}
               progress={progressByEpic.get(row.epic.id)!}
               members={members}
+              sprints={sprints}
             />
             {TASK_STATUSES.map((status) => (
               <div key={status} className="p-2">

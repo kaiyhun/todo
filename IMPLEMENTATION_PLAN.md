@@ -59,13 +59,16 @@ lib/
     credentials.ts         hashPassword/verifyPassword + authorize()
   queries/
     board.ts               getBoardData() — sprint + epic rows + bucketed tasks
+    tasks.ts               getTasksList() (filtered) + getTaskDetail()
+    members.ts             getWorkspaceMembers() — shared by board + tasks
   actions/
     types.ts               ActionResult discriminated unions
     auth.ts                register / login / logout Server Actions
-    epics.ts               createEpic / deleteEpic (cascades tasks)
-    tasks.ts               createTask / moveTask / deleteTask
+    epics.ts               createEpic / updateEpic (incl. sprint move) / deleteEpic
+    tasks.ts               createTask / updateTask / moveTask / deleteTask
   board-types.ts           BoardRow/BoardData + cell-id encode/decode (pure)
   board-state.ts           Pure, immutable drag transitions (findTaskLocation, moveTask)
+  task-types.ts            TaskListRow/TaskDetail/TaskFilters/EpicOption (pure)
   session.ts               getCurrentUser / requireUser / getCurrentContext
   workspace.ts             getWorkspaceForUser / createWorkspaceForUser
   navigation.ts format.ts utils.ts
@@ -75,14 +78,20 @@ components/
   app-shell/  sidebar.tsx  user-menu.tsx
   board/      board-grid.tsx (DndContext) board-cell.tsx task-card.tsx
               epic-row-header.tsx quick-add-task.tsx sprint-switcher.tsx
-              create-epic-dialog.tsx badges.tsx
+              create-epic-dialog.tsx edit-epic-dialog.tsx badges.tsx
+  tasks/      tasks-table.tsx task-filters.tsx task-detail-form.tsx task-modal.tsx
   ui/         (shadcn components)
 
 app/
   layout.tsx page.tsx globals.css
   api/auth/[...nextauth]/route.ts
   (auth)/    layout.tsx login/ register/
-  (app)/     layout.tsx dashboard/ board/ tasks/ wiki/ members/ settings/
+  (app)/     layout.tsx (renders the `modal` slot) error.tsx
+             dashboard/ board/ tasks/ wiki/ members/ settings/
+             tasks/[taskId]/page.tsx          full page (direct load / refresh)
+             @modal/default.tsx               empty slot
+             @modal/[...catchAll]/page.tsx    closes modal on soft nav away
+             @modal/(.)tasks/[taskId]/page.tsx  intercepted → dialog
 
 scripts/  load-env.ts  seed.ts
 ```
@@ -207,15 +216,46 @@ Two real bugs were found and fixed during verification:
 
 ---
 
-### ⬜ M2 — Task management & tracking
-- Task list view with search + filters (status, priority, assignee, label).
-- Task detail (dialog or `/tasks/[id]`): full edit, description, labels, due date,
-  reporter, timestamps. Create/update/delete Server Actions (`createTaskSchema`,
-  `updateTaskSchema`).
-- Empty/loading/error states.
+### ✅ M2 — Task management & tracking
+- **Tasks page**: flat table across every epic (Title · Epic · Status · Priority ·
+  Assignees · Due), with search + status/priority/assignee/epic filters. All filter
+  state lives in the URL and is applied server-side, so a filtered view is
+  shareable and survives a refresh. Search input is debounced; `$regex` input is
+  escaped.
+- **Task detail is both a modal and a page**, via a parallel `@modal` slot plus an
+  intercepting route `(.)tasks/[taskId]`. A soft navigation (from the board or the
+  table) opens a dialog over the current page; a direct load / refresh / shared
+  link renders the full page at `/tasks/[taskId]`. A catch-all in the slot returns
+  `null` so the modal can't linger.
+- **Edit**: title, description, epic (re-parent), status, priority, labels, due
+  date; delete with confirmation. Changing status/epic re-slots the card at the end
+  of its destination cell — the non-drag equivalent of moving it.
+- **Epics** gained edit + **move between sprints / backlog** (`updateEpicAction`).
+- Board cards open the task detail on click. Drag vs click is disambiguated by
+  pointer travel (< 5px = click); `KeyboardSensor` is restricted to Space so Enter
+  can open the task.
+- `loading.tsx` for /board and /tasks, `error.tsx` for the whole `(app)` segment.
 
-**Acceptance:** create/edit/delete a task; filters + search narrow the list; detail
-view round‑trips all fields.
+**Key files:** `app/(app)/tasks/*`, `app/(app)/@modal/*`, `components/tasks/*`,
+`lib/queries/{tasks,members}.ts`, `lib/task-types.ts`,
+`components/board/edit-epic-dialog.tsx`.
+
+**Acceptance (met):** typecheck + lint clean; verified in a real browser against
+Atlas with 0 console errors — filters narrow correctly (`?q=.*` returns 0 rows,
+proving regex escaping); soft nav renders a modal with the list still mounted
+behind it while a hard load renders the full page; edits, status re-slotting, epic
+sprint-moves and deletes all persisted (confirmed by querying MongoDB directly);
+dragging still works and never navigates.
+
+Two hazards handled explicitly:
+1. `updateTaskSchema` is **not** `createTaskSchema.partial()` — the create schema's
+   `.default()`s would reset omitted fields.
+2. The Mongo driver serialises `undefined` as `null`, so `$set` is built only from
+   defined keys. Verified: editing a task's priority leaves its `assigneeIds` (which
+   the form never sends) intact.
+
+> Assignee **editing** is intentionally still M3; the table shows and filters by
+> assignee already.
 
 ---
 
@@ -223,7 +263,9 @@ view round‑trips all fields.
 - Members page: list workspace members with roles.
 - Invite by email (add an existing user; or a lightweight pending‑invite record).
 - Role management (owner/admin/member) with permission checks in actions.
-- Assignee picker on tasks (multi‑select with avatars); assignee filter on board/list.
+- **Assignee picker** (multi‑select with avatars) in the task detail form and the
+  epic edit dialog. `updateTaskAction`/`updateEpicAction` already accept
+  `assigneeIds`; only the UI is missing. The assignee *filter* already ships (M2).
 
 **Acceptance:** add/remove a member; change a role; assign multiple members to a
 task and see avatars on the card; non‑admins can't change roles.

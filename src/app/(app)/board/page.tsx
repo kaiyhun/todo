@@ -2,28 +2,14 @@ import type { Metadata } from "next";
 import { Columns3 } from "lucide-react";
 import { requireContext } from "@/lib/session";
 import { getBoardData } from "@/lib/queries/board";
-import { usersCollection } from "@/lib/db/collections";
-import { toObjectId } from "@/lib/models/common";
-import { BACKLOG_VIEW, type BoardMember } from "@/lib/board-types";
+import { getWorkspaceMembers } from "@/lib/queries/members";
+import { BACKLOG_VIEW } from "@/lib/board-types";
 import { formatDate } from "@/lib/format";
 import { BoardGrid } from "@/components/board/board-grid";
 import { SprintSwitcher } from "@/components/board/sprint-switcher";
 import { CreateEpicDialog } from "@/components/board/create-epic-dialog";
 
 export const metadata: Metadata = { title: "Board" };
-
-/** Fetch the workspace's members so cards can render assignee avatars. */
-async function getBoardMembers(memberIds: string[]): Promise<BoardMember[]> {
-  if (memberIds.length === 0) return [];
-  const docs = await usersCollection()
-    .find({ _id: { $in: memberIds.map((id) => toObjectId(id)) } })
-    .toArray();
-  return docs.map((doc) => ({
-    id: doc._id.toString(),
-    name: doc.name,
-    image: doc.image,
-  }));
-}
 
 export default async function BoardPage({
   searchParams,
@@ -36,7 +22,7 @@ export default async function BoardPage({
 
   const [board, members] = await Promise.all([
     getBoardData(workspace.id, requestedView),
-    getBoardMembers(workspace.members.map((member) => member.userId)),
+    getWorkspaceMembers(workspace.members.map((member) => member.userId)),
   ]);
 
   const isBacklog = board.view === BACKLOG_VIEW;
@@ -85,7 +71,7 @@ export default async function BoardPage({
           <CreateEpicDialog sprintId={sprintIdForNewEpic} />
         </div>
       ) : (
-        <BoardGrid rows={board.rows} members={members} />
+        <BoardGrid rows={board.rows} members={members} sprints={board.sprints} />
       )}
     </div>
   );

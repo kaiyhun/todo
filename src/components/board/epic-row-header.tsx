@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { MoreHorizontal, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { deleteEpicAction } from "@/lib/actions/epics";
+import { EditEpicDialog } from "./edit-epic-dialog";
+import type { Sprint } from "@/lib/models/sprint";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -39,12 +41,15 @@ export function EpicRowHeader({
   epic,
   progress,
   members,
+  sprints,
 }: {
   epic: Epic;
   progress: EpicProgress;
   members: BoardMember[];
+  sprints: Sprint[];
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
   function handleDelete() {
@@ -76,9 +81,18 @@ export function EpicRowHeader({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
               onSelect={(event) => {
                 // Keep the menu from closing the dialog it's about to open.
+                event.preventDefault();
+                setEditOpen(true);
+              }}
+            >
+              <Pencil className="size-4" />
+              Edit epic
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onSelect={(event) => {
                 event.preventDefault();
                 setConfirmOpen(true);
               }}
@@ -112,6 +126,13 @@ export function EpicRowHeader({
       </div>
 
       <AssigneeAvatars assigneeIds={epic.assigneeIds} members={members} />
+
+      <EditEpicDialog
+        epic={epic}
+        sprints={sprints}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+      />
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>

@@ -1,11 +1,16 @@
 "use client";
 
+import { useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import type { BoardMember } from "@/lib/board-types";
 import type { Task } from "@/lib/models/task";
 import { AssigneeAvatars, PriorityBadge } from "./badges";
+
+/** Pointer travel (px) below which a press counts as a click, not a drag. */
+const CLICK_SLOP = 5;
 
 /**
  * The card's appearance, with no drag wiring. Rendered both in place and inside
@@ -47,7 +52,18 @@ export function TaskCardView({
   );
 }
 
-/** A draggable, sortable card inside a board cell. */
+/**
+ * A draggable, sortable card that also opens the task detail when clicked.
+ *
+ * Drag and click share the same element, so we distinguish them by pointer
+ * travel: a press that moves less than `CLICK_SLOP` never trips dnd-kit's
+ * activation constraint and is therefore a click. Our pointer/key handlers are
+ * *composed* with dnd-kit's rather than replacing them — spreading `listeners`
+ * and then declaring `onPointerDown` would otherwise silently override it.
+ *
+ * Keyboard: Space picks the card up (see the board's `KeyboardSensor` codes);
+ * Enter opens it.
+ */
 export function SortableTaskCard({
   task,
   members,
@@ -55,18 +71,52 @@ export function SortableTaskCard({
   task: Task;
   members: BoardMember[];
 }) {
+  const router = useRouter();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id });
+
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
+
+  const openTask = () => router.push(`/tasks/${task.id}`);
+
+  function handlePointerDown(event: React.PointerEvent) {
+    pointerStart.current = { x: event.clientX, y: event.clientY };
+    (listeners?.onPointerDown as ((e: React.PointerEvent) => void) | undefined)?.(
+      event,
+    );
+  }
+
+  function handlePointerUp(event: React.PointerEvent) {
+    const start = pointerStart.current;
+    pointerStart.current = null;
+    if (!start) return;
+
+    const travelled = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+    if (travelled < CLICK_SLOP) openTask();
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      openTask();
+      return;
+    }
+    (listeners?.onKeyDown as ((e: React.KeyboardEvent) => void) | undefined)?.(
+      event,
+    );
+  }
 
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      // The whole card is the drag handle; the DragOverlay renders the copy that
-      // follows the cursor, so the original fades in place.
       className={cn("cursor-grab touch-none", isDragging && "opacity-40")}
       {...attributes}
       {...listeners}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onKeyDown={handleKeyDown}
+      aria-label={`${task.title}. Press Enter to open, Space to move.`}
     >
       <TaskCardView task={task} members={members} />
     </div>

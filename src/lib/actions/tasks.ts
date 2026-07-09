@@ -4,7 +4,8 @@
  * Server Actions for tasks (the board's cards).
  *
  * Every action resolves the caller's workspace via `requireContext()` and scopes
- * all queries by `workspaceId`.
+ * all queries by `workspaceId`, so a user can never read or mutate another
+ * workspace's data by passing a foreign id.
  */
 import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
@@ -15,9 +16,33 @@ import {
   createTaskSchema,
   moveTaskSchema,
   serializeTask,
+  updateTaskSchema,
   type Task,
+  type TaskDoc,
 } from "@/lib/models/task";
+import type { TaskStatus } from "@/lib/models/enums";
 import type { ActionResult, ActionResultWith } from "./types";
+
+/** Every task mutation can change what the board and the task list render. */
+function revalidateTaskViews(taskId?: string): void {
+  revalidatePath("/board");
+  revalidatePath("/tasks");
+  if (taskId) revalidatePath(`/tasks/${taskId}`);
+}
+
+/** The next `order` at the end of a given (epic, status) cell. Cells are 0-based. */
+async function nextOrderInCell(
+  workspaceId: ObjectId,
+  epicId: ObjectId,
+  status: TaskStatus,
+): Promise<number> {
+  const last = await tasksCollection()
+    .find({ workspaceId, epicId, status })
+    .sort({ order: -1 })
+    .limit(1)
+    .next();
+  return (last?.order ?? -1) + 1;
+}
 
 /** Create a task inside an epic, appended to the end of its status column. */
 export async function createTaskAction(
@@ -43,15 +68,8 @@ export async function createTaskAction(
   });
   if (!epic) return { ok: false, error: "Epic not found" };
 
-  // Append: one past the highest order in the destination (epic, status) cell.
-  const lastInCell = await tasksCollection()
-    .find({ workspaceId: workspaceObjectId, epicId: epicObjectId, status })
-    .sort({ order: -1 })
-    .limit(1)
-    .next();
-
   const now = new Date();
-  const doc = {
+  const doc: TaskDoc = {
     _id: new ObjectId(),
     workspaceId: workspaceObjectId,
     epicId: epicObjectId,
@@ -62,15 +80,88 @@ export async function createTaskAction(
     assigneeIds: assigneeIds.map((id) => toObjectId(id)),
     reporterId: toObjectId(user.id),
     labels,
-    order: (lastInCell?.order ?? 0) + 1,
+    order: await nextOrderInCell(workspaceObjectId, epicObjectId, status),
     dueDate,
     createdAt: now,
     updatedAt: now,
   };
   await tasksCollection().insertOne(doc);
 
-  revalidatePath("/board");
+  revalidateTaskViews();
   return { ok: true, data: serializeTask(doc) };
+}
+
+/**
+ * Edit a task from the detail view.
+ *
+ * Only keys present in `input` are written — the `$set` document is built from
+ * defined values because the Mongo driver serialises `undefined` as `null`,
+ * which would blank out fields the user never touched.
+ *
+ * Changing `status` and/or `epicId` here is the non-drag equivalent of moving the
+ * card, so the task is re-slotted at the end of its destination cell.
+ */
+export async function updateTaskAction(
+  taskId: string,
+  input: unknown,
+): Promise<ActionResult> {
+  const { workspace } = await requireContext();
+  if (!isValidObjectId(taskId)) return { ok: false, error: "Invalid task id" };
+
+  const parsed = updateTaskSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid task" };
+  }
+  const patch = parsed.data;
+
+  const workspaceObjectId = toObjectId(workspace.id);
+  const taskObjectId = toObjectId(taskId);
+
+  const existing = await tasksCollection().findOne({
+    _id: taskObjectId,
+    workspaceId: workspaceObjectId,
+  });
+  if (!existing) return { ok: false, error: "Task not found" };
+
+  const set: Record<string, unknown> = { updatedAt: new Date() };
+  if (patch.title !== undefined) set.title = patch.title;
+  if (patch.description !== undefined) set.description = patch.description;
+  if (patch.priority !== undefined) set.priority = patch.priority;
+  if (patch.labels !== undefined) set.labels = patch.labels;
+  if (patch.assigneeIds !== undefined) {
+    set.assigneeIds = patch.assigneeIds.map((id) => toObjectId(id));
+  }
+  // `null`/"" clears the due date; `undefined` leaves it untouched.
+  if (patch.dueDate !== undefined) {
+    set.dueDate = patch.dueDate ? new Date(patch.dueDate) : null;
+  }
+
+  const nextEpicId = patch.epicId ? toObjectId(patch.epicId) : existing.epicId;
+  const nextStatus = patch.status ?? existing.status;
+
+  if (patch.epicId) {
+    const epic = await epicsCollection().findOne({
+      _id: nextEpicId,
+      workspaceId: workspaceObjectId,
+    });
+    if (!epic) return { ok: false, error: "Epic not found" };
+    set.epicId = nextEpicId;
+  }
+  if (patch.status !== undefined) set.status = nextStatus;
+
+  const changedCell =
+    !nextEpicId.equals(existing.epicId) || nextStatus !== existing.status;
+  if (changedCell) {
+    set.order = await nextOrderInCell(workspaceObjectId, nextEpicId, nextStatus);
+  }
+
+  await tasksCollection().updateOne(
+    { _id: taskObjectId, workspaceId: workspaceObjectId },
+    { $set: set },
+  );
+
+  revalidateTaskViews(taskId);
+  return { ok: true };
 }
 
 /**
@@ -134,7 +225,7 @@ export async function moveTaskAction(input: unknown): Promise<ActionResult> {
     })),
   );
 
-  revalidatePath("/board");
+  revalidateTaskViews();
   return { ok: true };
 }
 
@@ -149,6 +240,6 @@ export async function deleteTaskAction(taskId: string): Promise<ActionResult> {
   });
   if (result.deletedCount === 0) return { ok: false, error: "Task not found" };
 
-  revalidatePath("/board");
+  revalidateTaskViews();
   return { ok: true };
 }

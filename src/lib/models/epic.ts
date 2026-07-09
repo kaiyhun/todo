@@ -89,5 +89,19 @@ export const createEpicSchema = z.object({
 });
 export type CreateEpicInput = z.infer<typeof createEpicSchema>;
 
-export const updateEpicSchema = createEpicSchema.partial();
+/**
+ * Fields accepted when editing an epic. Absent means "leave unchanged".
+ *
+ * `sprintId` is three-valued on purpose: `undefined` leaves the epic where it is,
+ * `null` moves it to the backlog, and an id moves it into that sprint.
+ */
+export const updateEpicSchema = z.object({
+  title: z.string().trim().min(1, "Title is required").max(200).optional(),
+  description: z.string().trim().max(10_000).optional(),
+  priority: z.enum(PRIORITIES).optional(),
+  sprintId: objectIdSchema.nullable().optional(),
+  assigneeIds: z.array(objectIdSchema).optional(),
+  labels: z.array(z.string().trim().min(1).max(40)).optional(),
+  dueDate: z.string().nullable().optional(),
+});
 export type UpdateEpicInput = z.infer<typeof updateEpicSchema>;
