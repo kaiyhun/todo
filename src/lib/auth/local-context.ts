@@ -5,6 +5,7 @@
  */
 import { ObjectId } from "mongodb";
 import { usersCollection, workspacesCollection } from "@/lib/db/collections";
+import { DEFAULT_TIMEZONE } from "@/lib/timezone";
 import type { UserDoc } from "@/lib/models/user";
 import type { WorkspaceDoc } from "@/lib/models/workspace";
 import {
@@ -49,6 +50,7 @@ export async function ensureLocalWorkspace(): Promise<WorkspaceDoc> {
     _id,
     name: "My Workspace",
     slug: "local",
+    timezone: DEFAULT_TIMEZONE,
     members: [
       { userId: new ObjectId(LOCAL_USER_ID), role: "owner", joinedAt: now },
     ],

@@ -43,7 +43,7 @@ export default async function BoardPage({
               ? "Epics that aren't scheduled into a sprint yet."
               : board.selectedSprint
                 ? (board.selectedSprint.goal ??
-                  `${formatDate(board.selectedSprint.startDate)} – ${formatDate(board.selectedSprint.endDate)}`)
+                  `${formatDate(board.selectedSprint.startDate, workspace.timezone)} – ${formatDate(board.selectedSprint.endDate, workspace.timezone)}`)
                 : "No sprints yet."}
           </p>
         </div>

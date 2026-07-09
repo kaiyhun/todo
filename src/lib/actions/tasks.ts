@@ -12,6 +12,7 @@ import { revalidatePath } from "next/cache";
 import { requireContext } from "@/lib/session";
 import { epicsCollection, tasksCollection } from "@/lib/db/collections";
 import { isValidObjectId, toObjectId } from "@/lib/models/common";
+import { parseDueDate } from "@/lib/time-server";
 import {
   createTaskSchema,
   moveTaskSchema,
@@ -68,6 +69,14 @@ export async function createTaskAction(
   });
   if (!epic) return { ok: false, error: "Epic not found" };
 
+  // "Jul 20" means the end of the 20th *in the workspace's timezone*.
+  let dueDateInstant: Date | null;
+  try {
+    dueDateInstant = parseDueDate(dueDate, workspace.timezone);
+  } catch {
+    return { ok: false, error: "Invalid due date" };
+  }
+
   const now = new Date();
   const doc: TaskDoc = {
     _id: new ObjectId(),
@@ -81,7 +90,7 @@ export async function createTaskAction(
     reporterId: toObjectId(user.id),
     labels,
     order: await nextOrderInCell(workspaceObjectId, epicObjectId, status),
-    dueDate,
+    dueDate: dueDateInstant,
     createdAt: now,
     updatedAt: now,
   };
@@ -131,9 +140,14 @@ export async function updateTaskAction(
   if (patch.assigneeIds !== undefined) {
     set.assigneeIds = patch.assigneeIds.map((id) => toObjectId(id));
   }
-  // `null`/"" clears the due date; `undefined` leaves it untouched.
+  // `null`/"" clears the due date; `undefined` leaves it untouched. A supplied
+  // date is the end of that day in the workspace timezone — never `new Date()`.
   if (patch.dueDate !== undefined) {
-    set.dueDate = patch.dueDate ? new Date(patch.dueDate) : null;
+    try {
+      set.dueDate = parseDueDate(patch.dueDate, workspace.timezone);
+    } catch {
+      return { ok: false, error: "Invalid due date" };
+    }
   }
 
   const nextEpicId = patch.epicId ? toObjectId(patch.epicId) : existing.epicId;

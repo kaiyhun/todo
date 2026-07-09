@@ -102,8 +102,15 @@ export default async function DashboardPage() {
                   </p>
                 ) : null}
                 <p className="text-xs text-muted-foreground">
-                  {formatDate(activeSprint.startDate?.toISOString() ?? null)} –{" "}
-                  {formatDate(activeSprint.endDate?.toISOString() ?? null)}
+                  {formatDate(
+                    activeSprint.startDate?.toISOString() ?? null,
+                    workspace.timezone,
+                  )}{" "}
+                  –{" "}
+                  {formatDate(
+                    activeSprint.endDate?.toISOString() ?? null,
+                    workspace.timezone,
+                  )}
                 </p>
               </div>
             ) : (

@@ -64,7 +64,7 @@ export default async function TasksPage({
 
       <TaskFilters members={members} epics={epics} />
 
-      <TasksTable rows={rows} members={members} />
+      <TasksTable rows={rows} members={members} timezone={workspace.timezone} />
 
       <p className="text-xs text-muted-foreground">
         {truncated

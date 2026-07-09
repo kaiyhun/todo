@@ -16,6 +16,7 @@ import {
   tasksCollection,
 } from "@/lib/db/collections";
 import { isValidObjectId, toObjectId } from "@/lib/models/common";
+import { parseDueDate } from "@/lib/time-server";
 import { createEpicSchema, updateEpicSchema } from "@/lib/models/epic";
 import type { ActionResult, ActionResultWith } from "./types";
 
@@ -53,6 +54,13 @@ export async function createEpicAction(
   const workspaceObjectId = toObjectId(workspace.id);
   const sprintObjectId = sprintId ? toObjectId(sprintId) : null;
 
+  let dueDateInstant: Date | null;
+  try {
+    dueDateInstant = parseDueDate(dueDate, workspace.timezone);
+  } catch {
+    return { ok: false, error: "Invalid due date" };
+  }
+
   const now = new Date();
   const _id = new ObjectId();
   await epicsCollection().insertOne({
@@ -66,7 +74,7 @@ export async function createEpicAction(
     reporterId: toObjectId(user.id),
     labels,
     order: await nextRowOrder(workspaceObjectId, sprintObjectId),
-    dueDate,
+    dueDate: dueDateInstant,
     createdAt: now,
     updatedAt: now,
   });
@@ -113,7 +121,11 @@ export async function updateEpicAction(
     set.assigneeIds = patch.assigneeIds.map((id) => toObjectId(id));
   }
   if (patch.dueDate !== undefined) {
-    set.dueDate = patch.dueDate ? new Date(patch.dueDate) : null;
+    try {
+      set.dueDate = parseDueDate(patch.dueDate, workspace.timezone);
+    } catch {
+      return { ok: false, error: "Invalid due date" };
+    }
   }
 
   // Three-valued: undefined = leave alone, null = backlog, id = that sprint.

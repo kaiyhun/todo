@@ -28,7 +28,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { AssigneePicker } from "@/components/shared/assignee-picker";
-import { formatDate } from "@/lib/format";
+import { useTimezone } from "@/components/providers/timezone-provider";
+import { formatDateTime, toDateInputValue } from "@/lib/format";
 import {
   PRIORITIES,
   PRIORITY_LABELS,
@@ -53,6 +54,7 @@ export function TaskDetailForm({
   onClose?: () => void;
 }) {
   const router = useRouter();
+  const timezone = useTimezone();
   const { task, epics, members, reporterName } = detail;
 
   const [title, setTitle] = useState(task.title);
@@ -62,8 +64,11 @@ export function TaskDetailForm({
   const [epicId, setEpicId] = useState(task.epicId);
   const [assigneeIds, setAssigneeIds] = useState<string[]>(task.assigneeIds);
   const [labels, setLabels] = useState(task.labels.join(", "));
-  // <input type="date"> wants YYYY-MM-DD; the DTO carries a full ISO string.
-  const [dueDate, setDueDate] = useState(task.dueDate ? task.dueDate.slice(0, 10) : "");
+  // The stored instant is the end of the due day *in the workspace timezone*, so
+  // the input must show that zone's calendar date — not the UTC one.
+  const [dueDate, setDueDate] = useState(
+    toDateInputValue(task.dueDate, timezone),
+  );
 
   const [pending, startTransition] = useTransition();
   const [deleting, startDeleting] = useTransition();
@@ -194,6 +199,9 @@ export function TaskDetailForm({
             value={dueDate}
             onChange={(event) => setDueDate(event.target.value)}
           />
+          <p className="text-xs text-muted-foreground">
+            End of that day, {timezone}.
+          </p>
         </div>
       </div>
 
@@ -236,11 +244,11 @@ export function TaskDetailForm({
         </div>
         <div className="flex items-center gap-2">
           <dt className="text-muted-foreground">Created</dt>
-          <dd>{formatDate(task.createdAt)}</dd>
+          <dd>{formatDateTime(task.createdAt, timezone)}</dd>
         </div>
         <div className="flex items-center gap-2">
           <dt className="text-muted-foreground">Updated</dt>
-          <dd>{formatDate(task.updatedAt)}</dd>
+          <dd>{formatDateTime(task.updatedAt, timezone)}</dd>
         </div>
       </dl>
 

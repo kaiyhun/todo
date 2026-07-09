@@ -11,6 +11,7 @@
 import { requireContext } from "@/lib/session";
 import { isLocalMode } from "@/lib/auth/local-mode";
 import { Sidebar } from "@/components/app-shell/sidebar";
+import { TimezoneProvider } from "@/components/providers/timezone-provider";
 
 export default async function AppLayout({
   children,
@@ -22,10 +23,12 @@ export default async function AppLayout({
   const { user, workspace } = await requireContext();
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden">
-      <Sidebar user={user} workspace={workspace} localMode={isLocalMode()} />
-      <main className="flex-1 overflow-y-auto">{children}</main>
-      {modal}
-    </div>
+    <TimezoneProvider timezone={workspace.timezone}>
+      <div className="flex h-dvh w-full overflow-hidden">
+        <Sidebar user={user} workspace={workspace} localMode={isLocalMode()} />
+        <main className="flex-1 overflow-y-auto">{children}</main>
+        {modal}
+      </div>
+    </TimezoneProvider>
   );
 }

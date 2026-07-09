@@ -53,10 +53,24 @@ Deploys on Vercel Hobby. Full plan: `IMPLEMENTATION_PLAN.md`.
   Matching runs on raw markdown; snippets use `stripMarkdown()` from `lib/text.ts`.
   Always escape user input with `escapeRegex()` before a `$regex`.
 
-## Dates & hydration
-- `formatDate()` pins **locale `en-US` and `timeZone: "UTC"`**. Don't "fix" it to use
-  the viewer's locale: it runs inside Client Components (SSR + hydration), and due
-  dates are stored as UTC midnight, so a local timezone renders them a day early.
+## Dates & timezones
+- Every instant is stored in **UTC**; every date is rendered through
+  `workspace.timezone` (the project's shared clock). Never read the ambient zone:
+  `toLocaleDateString(undefined, …)` differs between server and browser and is a
+  hydration mismatch.
+- `formatDate(iso, tz)` / `formatDateTime(iso, tz)` / `toDateInputValue(iso, tz)` all
+  take the zone explicitly. Server Components get it from `requireContext()`;
+  Client Components from `useTimezone()`.
+- **A due date is written through `parseDueDate(value, workspace.timezone)`** in
+  `lib/time-server.ts` (Temporal, `server-only`). Never `new Date(value)`:
+  `new Date("2026-07-20")` parses as UTC midnight, and
+  `new Date("2026-07-20T19:00")` parses as *server-local* — opposite rules, and on
+  Vercel server-local is UTC. The bug is invisible in local dev whenever your
+  machine sits in the project timezone.
+- A due date means the **end of that day in the project timezone**, so "overdue" is
+  a plain instant comparison.
+- Anything derived from `new Date()` inside a Client Component (relative times,
+  "current time in zone") must be computed on the server and passed as a prop.
 - `<body>` has `suppressHydrationWarning` because browser extensions (Grammarly,
   password managers) inject attributes before React hydrates. It only covers that
   element's own attributes — a mismatch anywhere else is a real bug.

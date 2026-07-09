@@ -9,6 +9,7 @@ import { z } from "zod";
 import type { ObjectId } from "mongodb";
 import { objectIdSchema, type BaseDoc } from "./common";
 import { emailSchema } from "./user";
+import { DEFAULT_TIMEZONE, isValidTimeZone } from "@/lib/timezone";
 
 export type WorkspaceRole = "owner" | "admin" | "member";
 
@@ -24,6 +25,14 @@ export interface WorkspaceDoc extends BaseDoc {
   name: string;
   /** Unique, URL-safe identifier used in links, e.g. `acme-team`. */
   slug: string;
+  /**
+   * IANA timezone (e.g. `America/Vancouver`) — the project's agreed clock.
+   *
+   * Every instant is stored in UTC and rendered through this zone, and a due date
+   * picked in the UI is interpreted as the end of that day *here*. It is the one
+   * timezone the whole team shares, regardless of where each member sits.
+   */
+  timezone: string;
   members: WorkspaceMember[];
 }
 
@@ -32,6 +41,7 @@ export interface Workspace {
   id: string;
   name: string;
   slug: string;
+  timezone: string;
   members: Array<{ userId: string; role: WorkspaceRole; joinedAt: string }>;
 }
 
@@ -40,6 +50,8 @@ export function serializeWorkspace(doc: WorkspaceDoc): Workspace {
     id: doc._id.toString(),
     name: doc.name,
     slug: doc.slug,
+    // Tolerate workspaces created before the field existed.
+    timezone: doc.timezone ?? DEFAULT_TIMEZONE,
     members: doc.members.map((m) => ({
       userId: m.userId.toString(),
       role: m.role,
@@ -52,6 +64,16 @@ export const createWorkspaceSchema = z.object({
   name: z.string().trim().min(1, "Workspace name is required").max(80),
 });
 export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>;
+
+/** Workspace settings. Absent means "leave unchanged". */
+export const updateWorkspaceSchema = z.object({
+  name: z.string().trim().min(1, "Workspace name is required").max(80).optional(),
+  timezone: z
+    .string()
+    .refine(isValidTimeZone, "Unknown timezone")
+    .optional(),
+});
+export type UpdateWorkspaceInput = z.infer<typeof updateWorkspaceSchema>;
 
 // ---------------------------------------------------------------------------
 // Membership

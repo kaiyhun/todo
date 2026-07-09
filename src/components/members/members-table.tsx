@@ -42,7 +42,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatDate, getInitials } from "@/lib/format";
+import { useTimezone } from "@/components/providers/timezone-provider";
+import { formatDateTime, getInitials } from "@/lib/format";
 import {
   ROLE_LABELS,
   canActOnMember,
@@ -72,6 +73,7 @@ export function MembersTable({
   currentUserId: string;
   currentRole: WorkspaceRole;
 }) {
+  const timezone = useTimezone();
   const [confirm, setConfirm] = useState<PendingConfirm>(null);
   const [pending, startTransition] = useTransition();
 
@@ -187,7 +189,7 @@ export function MembersTable({
                   </TableCell>
 
                   <TableCell className="whitespace-nowrap text-muted-foreground">
-                    {formatDate(member.joinedAt)}
+                    {formatDateTime(member.joinedAt, timezone)}
                   </TableCell>
 
                   <TableCell>

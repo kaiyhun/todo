@@ -15,6 +15,7 @@
 import "./load-env";
 
 import { ObjectId } from "mongodb";
+import { Temporal } from "@js-temporal/polyfill";
 import { mongoClient } from "@/lib/db/mongodb";
 import { ensureIndexes } from "@/lib/db/indexes";
 import {
@@ -40,9 +41,26 @@ import type { Priority, TaskStatus } from "@/lib/models/enums";
 /** Shared password for every demo account. */
 const DEMO_PASSWORD = "password123";
 
+/** The demo workspace's project timezone — the team's shared clock. */
+const DEMO_TIMEZONE = "America/Vancouver";
+
 const now = new Date();
 const daysFromNow = (days: number) =>
   new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
+/**
+ * A due date is the END of that calendar day in the project timezone.
+ *
+ * This duplicates `lib/time-server.ts` on purpose: that module is guarded by
+ * `server-only`, which throws when imported outside a React server bundle — and
+ * this script runs under plain `tsx`.
+ */
+const endOfDay = (dateOnly: string, timeZone: string) =>
+  new Date(
+    Temporal.PlainDate.from(dateOnly)
+      .toZonedDateTime({ timeZone, plainTime: Temporal.PlainTime.from("23:59:59.999") })
+      .toInstant().epochMilliseconds,
+  );
 
 /** Upsert a demo user by email and return the stored document. */
 async function upsertUser(
@@ -77,6 +95,8 @@ interface EpicSpec {
     priority: Priority;
     assignees: ObjectId[];
     labels?: string[];
+    /** `YYYY-MM-DD`, interpreted as the end of that day in DEMO_TIMEZONE. */
+    due?: string;
   }>;
 }
 
@@ -114,6 +134,7 @@ async function seed() {
       $set: {
         name: "Demo Team",
         slug: "demo",
+        timezone: DEMO_TIMEZONE,
         members: [
           // Owner is the local user so LOCAL_MODE has full control out of the box.
           // Alice is an admin, which exercises the "can manage people, can't
@@ -178,7 +199,7 @@ async function seed() {
         { title: "Step 1: profile", status: "closed", priority: "high", assignees: [alice._id] },
         { title: "Step 2: invite team", status: "resolved", priority: "medium", assignees: [bob._id] },
         { title: "Step 3: first epic", status: "active", priority: "medium", assignees: [alice._id] },
-        { title: "Welcome email", status: "new", priority: "low", assignees: [] },
+        { title: "Welcome email", status: "new", priority: "low", assignees: [], due: "2026-07-20" },
       ],
     },
     {
@@ -295,7 +316,7 @@ async function seed() {
         reporterId: alice._id,
         labels: task.labels ?? [],
         order: cardOrder,
-        dueDate: null,
+        dueDate: task.due ? endOfDay(task.due, DEMO_TIMEZONE) : null,
         createdAt: now,
         updatedAt: now,
       });

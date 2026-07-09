@@ -4,6 +4,7 @@
 import { ObjectId } from "mongodb";
 import { workspacesCollection } from "@/lib/db/collections";
 import { slugify, toObjectId } from "@/lib/models/common";
+import { DEFAULT_TIMEZONE } from "@/lib/timezone";
 import type { WorkspaceDoc } from "@/lib/models/workspace";
 
 /** The first workspace the given user is a member of, or `null`. */
@@ -36,6 +37,8 @@ export async function createWorkspaceForUser(
     _id: new ObjectId(),
     name: name.trim(),
     slug,
+    // The server can't know the creator's zone; the owner sets it in Settings.
+    timezone: DEFAULT_TIMEZONE,
     members: [{ userId: toObjectId(userId), role: "owner", joinedAt: now }],
     createdAt: now,
     updatedAt: now,

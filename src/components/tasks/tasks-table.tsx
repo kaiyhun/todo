@@ -25,9 +25,12 @@ import type { TaskListRow } from "@/lib/task-types";
 export function TasksTable({
   rows,
   members,
+  timezone,
 }: {
   rows: TaskListRow[];
   members: BoardMember[];
+  /** The workspace timezone every date is rendered in. */
+  timezone: string;
 }) {
   if (rows.length === 0) {
     return (
@@ -91,7 +94,7 @@ export function TasksTable({
                 )}
               </TableCell>
               <TableCell className="text-muted-foreground whitespace-nowrap">
-                {formatDate(task.dueDate)}
+                {formatDate(task.dueDate, timezone)}
               </TableCell>
             </TableRow>
           ))}

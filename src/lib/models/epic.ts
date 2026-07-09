@@ -72,10 +72,8 @@ export function serializeEpic(doc: EpicDoc): Epic {
 // Input schemas
 // ---------------------------------------------------------------------------
 
-const optionalDate = z
-  .string()
-  .optional()
-  .transform((v) => (v ? new Date(v) : null));
+/** Raw `YYYY-MM-DD`; converted by the action using the workspace timezone. */
+const dueDateInput = z.string().nullable().optional();
 
 export const createEpicSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
@@ -85,7 +83,7 @@ export const createEpicSchema = z.object({
   sprintId: objectIdSchema.nullable().optional(),
   assigneeIds: z.array(objectIdSchema).default([]),
   labels: z.array(z.string().trim().min(1).max(40)).default([]),
-  dueDate: optionalDate,
+  dueDate: dueDateInput,
 });
 export type CreateEpicInput = z.infer<typeof createEpicSchema>;
 

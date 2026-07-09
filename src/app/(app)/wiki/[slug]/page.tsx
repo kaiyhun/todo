@@ -4,7 +4,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { ChevronRight, Pencil } from "lucide-react";
 import { requireContext } from "@/lib/session";
 import { getWikiChildCount, getWikiPageBySlug } from "@/lib/queries/wiki";
-import { formatDate } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/wiki/markdown";
 import { DeletePageButton } from "@/components/wiki/delete-page-button";
@@ -55,7 +55,8 @@ export default async function WikiPageRoute({
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">{page.title}</h1>
           <p className="text-xs text-muted-foreground">
-            Updated by {updatedByName} on {formatDate(page.updatedAt)}
+            Updated by {updatedByName} on{" "}
+            {formatDateTime(page.updatedAt, workspace.timezone)}
           </p>
         </div>
 

@@ -388,12 +388,56 @@ and underscore emphasis requires a whitespace boundary, as markdown itself does.
 
 ---
 
-### ⬜ M5 — Settings & profile
-- Workspace settings (rename, slug, delete).
-- Profile (name, avatar, change password); multi‑workspace switcher (optional).
+### 🚧 M5 — Settings & profile
+Workspace settings **done**; profile still to come.
 
-**Acceptance:** rename workspace reflects in the sidebar; change password then
-re‑login works.
+- **Project timezone** (`workspace.timezone`, IANA). The team's shared clock: every
+  instant is stored in UTC and rendered through this zone. Owner + admins can change
+  it (`canManageMembers`), via a searchable picker over the runtime's ~418 zones.
+- **Two conversions, not one.** The read side formats UTC → project tz. The **write
+  side must also convert**, because JS parses the two input formats with opposite
+  rules: `new Date("2026-07-20")` is UTC midnight, while
+  `new Date("2026-07-20T19:00")` is *server-local*. On Vercel server-local is UTC, so
+  a naive write silently stores the wrong instant — and no read-side formatter can
+  recover it. It looks correct in local dev whenever the developer sits in the
+  project timezone.
+- **A due date is the end of that calendar day in the project timezone.** Written by
+  `parseDueDate()` in `lib/time-server.ts` — `@js-temporal/polyfill`, behind
+  `server-only` so its ~200 KB never reaches the browser. `Temporal` is not in
+  Node 22 and `Date.parse` rejects IANA zones, so this cannot be hand-waved.
+- All formatters take the zone explicitly (`formatDate(iso, tz)` …). Server
+  Components read it from `requireContext()`; Client Components from `useTimezone()`.
+  This is also what removed the latent hydration mismatch — an ambient
+  `toLocaleDateString(undefined, …)` renders differently on server and browser.
+
+**Key files:** `lib/timezone.ts`, `lib/time-server.ts`, `lib/format.ts`,
+`lib/actions/workspace.ts`, `components/providers/timezone-provider.tsx`,
+`components/settings/*`, `app/(app)/settings/page.tsx`.
+
+**Acceptance (met):** typecheck + lint clean, 0 hydration errors, 0 console errors.
+Verified with the **dev server running as `TZ=UTC` to simulate Vercel**, project tz
+`America/Vancouver`:
+
+| Check | Result |
+| --- | --- |
+| Seeded due date `2026-07-20` | stored `2026-07-21T06:59:59.999Z` = *Jul 20, 11:59:59 PM PDT* |
+| Tasks table (Server Component) | `Jul 20, 2026` |
+| Date input (Client, SSR + hydrated) | `2026-07-20` |
+| Timestamps | `Jul 9, 2026 at 1:14 AM PDT` |
+| Round-trip: pick `2026-08-15` in the UI | stored `2026-08-16T06:59:59.999Z` ✅ (old code: `2026-08-15T00:00Z` → renders **Aug 14**) |
+| Switch project tz → `Asia/Tokyo` | dates re-render on the new clock (`GMT+9`); the same instant reads as Aug 16 |
+
+Temporal was validated against the nasty zones before building on it: DST
+spring-forward and fall-back, `Asia/Kolkata`'s half-hour offset, and
+`America/Santiago` on a day when **midnight does not exist**.
+
+**Still to do:** profile (name, avatar, change password); optional multi-workspace
+switcher; workspace delete.
+
+> Due dates remain date-only, so changing the project timezone re-reads them on the
+> new clock (a far-westward move can show the previous day). That was an explicit
+> trade-off against storing a plain `YYYY-MM-DD` string. Timestamps, being true
+> instants, are unaffected — they just show a different wall clock.
 
 ---
 

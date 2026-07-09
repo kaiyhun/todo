@@ -73,11 +73,15 @@ export function serializeTask(doc: TaskDoc): Task {
   };
 }
 
-/** Accepts a `datetime-local`/ISO string or nothing, coerced to a Date. */
-const optionalDate = z
-  .string()
-  .optional()
-  .transform((v) => (v ? new Date(v) : null));
+/**
+ * A due date arrives as the raw `YYYY-MM-DD` from `<input type="date">` and is
+ * kept as a string all the way to the action, which converts it to an instant
+ * with `parseDueDate(value, workspace.timezone)`.
+ *
+ * Never call `new Date(value)` on it: that parses the date as UTC midnight, so a
+ * deadline of "Jul 20" becomes Jul 19 for anyone west of UTC.
+ */
+const dueDateInput = z.string().nullable().optional();
 
 /** Fields accepted when creating a task. The server fills in reporter + order. */
 export const createTaskSchema = z.object({
@@ -88,7 +92,7 @@ export const createTaskSchema = z.object({
   priority: z.enum(PRIORITIES).default("medium"),
   assigneeIds: z.array(objectIdSchema).default([]),
   labels: z.array(z.string().trim().min(1).max(40)).default([]),
-  dueDate: optionalDate,
+  dueDate: dueDateInput,
 });
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 
