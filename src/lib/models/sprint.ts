@@ -1,8 +1,9 @@
 /**
  * Sprint model.
  *
- * A sprint is a time-boxed iteration that groups tasks. Tasks reference a sprint
- * by id; a task with `sprintId === null` lives in the backlog.
+ * A sprint is a time-boxed iteration that groups **epics** (the board's rows).
+ * Epics reference a sprint by id; an epic with `sprintId === null` lives in the
+ * backlog. Tasks inherit their sprint from the epic that owns them.
  */
 import { z } from "zod";
 import type { ObjectId } from "mongodb";

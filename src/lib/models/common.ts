@@ -10,6 +10,7 @@
  * ObjectId and Date instances cannot be handed to Client Components directly, so
  * anything that crosses that boundary must be serialised first.
  */
+import { z } from "zod";
 import { ObjectId } from "mongodb";
 
 /** Fields present on every persisted document. */
@@ -36,3 +37,11 @@ export function isValidObjectId(value: string): boolean {
 export function serializeDate(value: Date | null | undefined): string | null {
   return value ? value.toISOString() : null;
 }
+
+/** Zod validator for an id arriving from a form, URL or client payload. */
+export const objectIdSchema = z
+  .string()
+  .regex(/^[a-f0-9]{24}$/i, "Invalid id");
+
+// Status/priority enums live in `./enums` — a dependency-free module, so Client
+// Components can import them without pulling in zod or the Mongo driver.

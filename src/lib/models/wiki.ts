@@ -6,7 +6,7 @@
  */
 import { z } from "zod";
 import type { ObjectId } from "mongodb";
-import type { BaseDoc } from "./common";
+import { objectIdSchema, type BaseDoc } from "./common";
 
 /** A wiki page as stored in the `wikiPages` collection. */
 export interface WikiPageDoc extends BaseDoc {
@@ -51,18 +51,16 @@ export function serializeWikiPage(doc: WikiPageDoc): WikiPage {
   };
 }
 
-const objectIdString = z.string().regex(/^[a-f0-9]{24}$/i, "Invalid id");
-
 export const createWikiPageSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
   content: z.string().max(100_000).default(""),
-  parentId: objectIdString.nullable().optional(),
+  parentId: objectIdSchema.nullable().optional(),
 });
 export type CreateWikiPageInput = z.infer<typeof createWikiPageSchema>;
 
 export const updateWikiPageSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   content: z.string().max(100_000).optional(),
-  parentId: objectIdString.nullable().optional(),
+  parentId: objectIdSchema.nullable().optional(),
 });
 export type UpdateWikiPageInput = z.infer<typeof updateWikiPageSchema>;

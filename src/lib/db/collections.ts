@@ -10,6 +10,7 @@ import { getDb } from "./mongodb";
 import type { UserDoc } from "@/lib/models/user";
 import type { WorkspaceDoc } from "@/lib/models/workspace";
 import type { SprintDoc } from "@/lib/models/sprint";
+import type { EpicDoc } from "@/lib/models/epic";
 import type { TaskDoc } from "@/lib/models/task";
 import type { WikiPageDoc } from "@/lib/models/wiki";
 
@@ -18,6 +19,7 @@ export const COLLECTIONS = {
   users: "users",
   workspaces: "workspaces",
   sprints: "sprints",
+  epics: "epics",
   tasks: "tasks",
   wikiPages: "wikiPages",
 } as const;
@@ -34,6 +36,12 @@ export function sprintsCollection(): Collection<SprintDoc> {
   return getDb().collection<SprintDoc>(COLLECTIONS.sprints);
 }
 
+/** Epics are the board's rows. */
+export function epicsCollection(): Collection<EpicDoc> {
+  return getDb().collection<EpicDoc>(COLLECTIONS.epics);
+}
+
+/** Tasks are the board's cards, each owned by an epic. */
 export function tasksCollection(): Collection<TaskDoc> {
   return getDb().collection<TaskDoc>(COLLECTIONS.tasks);
 }

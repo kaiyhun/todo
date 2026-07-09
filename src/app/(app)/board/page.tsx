@@ -1,16 +1,92 @@
 import type { Metadata } from "next";
 import { Columns3 } from "lucide-react";
-import { ComingSoon } from "@/components/coming-soon";
+import { requireContext } from "@/lib/session";
+import { getBoardData } from "@/lib/queries/board";
+import { usersCollection } from "@/lib/db/collections";
+import { toObjectId } from "@/lib/models/common";
+import { BACKLOG_VIEW, type BoardMember } from "@/lib/board-types";
+import { formatDate } from "@/lib/format";
+import { BoardGrid } from "@/components/board/board-grid";
+import { SprintSwitcher } from "@/components/board/sprint-switcher";
+import { CreateEpicDialog } from "@/components/board/create-epic-dialog";
 
 export const metadata: Metadata = { title: "Board" };
 
-export default function BoardPage() {
+/** Fetch the workspace's members so cards can render assignee avatars. */
+async function getBoardMembers(memberIds: string[]): Promise<BoardMember[]> {
+  if (memberIds.length === 0) return [];
+  const docs = await usersCollection()
+    .find({ _id: { $in: memberIds.map((id) => toObjectId(id)) } })
+    .toArray();
+  return docs.map((doc) => ({
+    id: doc._id.toString(),
+    name: doc.name,
+    image: doc.image,
+  }));
+}
+
+export default async function BoardPage({
+  searchParams,
+}: {
+  // Next.js 16: `searchParams` is async and must be awaited.
+  searchParams: Promise<{ sprint?: string }>;
+}) {
+  const { workspace } = await requireContext();
+  const { sprint: requestedView } = await searchParams;
+
+  const [board, members] = await Promise.all([
+    getBoardData(workspace.id, requestedView),
+    getBoardMembers(workspace.members.map((member) => member.userId)),
+  ]);
+
+  const isBacklog = board.view === BACKLOG_VIEW;
+  // A new epic lands wherever we're currently looking.
+  const sprintIdForNewEpic = isBacklog ? null : board.view;
+
   return (
-    <ComingSoon
-      icon={Columns3}
-      title="Sprint Board"
-      milestone="M1"
-      description="A drag-and-drop Kanban board with columns for each status, sprint switching and inline task creation."
-    />
+    <div className="flex h-full flex-col gap-4 p-6">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {isBacklog ? "Backlog" : (board.selectedSprint?.name ?? "Board")}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {isBacklog
+              ? "Epics that aren't scheduled into a sprint yet."
+              : board.selectedSprint
+                ? (board.selectedSprint.goal ??
+                  `${formatDate(board.selectedSprint.startDate)} – ${formatDate(board.selectedSprint.endDate)}`)
+                : "No sprints yet."}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <SprintSwitcher
+            sprints={board.sprints}
+            view={board.view}
+            backlogEpicCount={board.backlogEpicCount}
+          />
+          <CreateEpicDialog sprintId={sprintIdForNewEpic} />
+        </div>
+      </header>
+
+      {board.rows.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12 text-center">
+          <div className="flex size-12 items-center justify-center rounded-xl border bg-muted/40">
+            <Columns3 className="size-6 text-muted-foreground" />
+          </div>
+          <div className="space-y-1">
+            <p className="font-medium">No epics here yet</p>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              An epic is a row on the board. Create one, then break it into tasks
+              and drag them across the columns.
+            </p>
+          </div>
+          <CreateEpicDialog sprintId={sprintIdForNewEpic} />
+        </div>
+      ) : (
+        <BoardGrid rows={board.rows} members={members} />
+      )}
+    </div>
   );
 }

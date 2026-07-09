@@ -40,12 +40,22 @@ Point `MONGODB_URI` at a local MongoDB (or your Atlas cluster).
 
 | Script | Description |
 | --- | --- |
-| `npm run dev` | Start the dev server |
-| `npm run build` | Production build (Turbopack) |
+| `npm run dev` | Start the dev server (webpack) |
+| `npm run build` | Production build (webpack) |
 | `npm run start` | Serve the production build |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
 | `npm run seed` | Populate the database with demo data |
+| `npm run dev:turbo` / `build:turbo` | Turbopack variants (see known issue below) |
+
+### Known issue: Turbopack + Tailwind v4
+
+Next.js 16.2.10's Turbopack has a bug where the Tailwind/PostCSS worker crashes
+(`evaluate_webpack_loader … unexpected end of file`), so `dev`/`build` use the
+**webpack** builder, which is unaffected. Switch back to the `:turbo` scripts once
+the upstream fix lands. Refs:
+[#63924](https://github.com/vercel/next.js/issues/63924),
+[#90860](https://github.com/vercel/next.js/issues/90860).
 
 ## Deployment
 

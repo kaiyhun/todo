@@ -1,13 +1,16 @@
 /**
  * Seed script — populates the database with a demo workspace, team, sprints,
- * tasks and wiki pages so the app is explorable immediately.
+ * epics, tasks and wiki pages so the app is explorable immediately.
  *
  * Run with:  npm run seed
  *
  * It is idempotent: users are upserted by email, and the demo workspace's
- * sprints/tasks/wiki are wiped and rebuilt on each run. It intentionally writes
- * into the workspace with the fixed LOCAL_WORKSPACE_ID so that BOTH LOCAL_MODE
- * and the demo logins below land in the same populated workspace.
+ * sprints/epics/tasks/wiki are wiped and rebuilt on each run. It intentionally
+ * writes into the workspace with the fixed LOCAL_WORKSPACE_ID so that BOTH
+ * LOCAL_MODE and the demo logins below land in the same populated workspace.
+ *
+ * The demo epics deliberately cover every rollup case: an epic with no tasks,
+ * one part-done, one fully resolved, and one fully closed.
  */
 import "./load-env";
 
@@ -18,13 +21,16 @@ import {
   usersCollection,
   workspacesCollection,
   sprintsCollection,
+  epicsCollection,
   tasksCollection,
   wikiPagesCollection,
 } from "@/lib/db/collections";
 import { hashPassword } from "@/lib/auth/credentials";
 import { LOCAL_WORKSPACE_ID } from "@/lib/auth/local-mode";
 import type { UserDoc, UserRole } from "@/lib/models/user";
-import type { TaskDoc, TaskStatus, TaskPriority } from "@/lib/models/task";
+import type { EpicDoc } from "@/lib/models/epic";
+import type { TaskDoc } from "@/lib/models/task";
+import type { Priority, TaskStatus } from "@/lib/models/enums";
 
 /** Shared password for every demo account. */
 const DEMO_PASSWORD = "password123";
@@ -50,6 +56,23 @@ async function upsertUser(
     { upsert: true },
   );
   return (await users.findOne({ email }))!;
+}
+
+/** A compact description of one epic row and the task cards inside it. */
+interface EpicSpec {
+  title: string;
+  description?: string;
+  priority: Priority;
+  sprint: ObjectId | null;
+  assignees: ObjectId[];
+  labels?: string[];
+  tasks: Array<{
+    title: string;
+    status: TaskStatus;
+    priority: Priority;
+    assignees: ObjectId[];
+    labels?: string[];
+  }>;
 }
 
 async function seed() {
@@ -95,7 +118,7 @@ async function seed() {
       _id: activeSprintId,
       workspaceId,
       name: "Sprint 12 — Onboarding polish",
-      goal: "Ship the new member onboarding flow and fix the top 5 bug reports.",
+      goal: "Ship the new member onboarding flow and fix the top bug reports.",
       status: "active",
       startDate: daysFromNow(-4),
       endDate: daysFromNow(10),
@@ -115,54 +138,149 @@ async function seed() {
     },
   ]);
 
-  console.log("→ Rebuilding tasks…");
+  console.log("→ Rebuilding epics and tasks…");
+  await epicsCollection().deleteMany({ workspaceId });
   await tasksCollection().deleteMany({ workspaceId });
 
-  // Compact task specs expanded into full documents below.
-  const specs: Array<{
-    title: string;
-    status: TaskStatus;
-    priority: TaskPriority;
-    assignees: ObjectId[];
-    sprint: ObjectId | null;
-    labels?: string[];
-    description?: string;
-  }> = [
-    { title: "Design onboarding wizard", status: "done", priority: "high", assignees: [carol._id], sprint: activeSprintId, labels: ["design"] },
-    { title: "Implement step 1: profile", status: "in_review", priority: "high", assignees: [alice._id], sprint: activeSprintId, labels: ["frontend"] },
-    { title: "Implement step 2: invite team", status: "in_progress", priority: "medium", assignees: [bob._id], sprint: activeSprintId, labels: ["frontend"] },
-    { title: "Fix avatar upload on Safari", status: "in_progress", priority: "urgent", assignees: [dave._id], sprint: activeSprintId, labels: ["bug"] },
-    { title: "Empty-state copy review", status: "todo", priority: "low", assignees: [carol._id], sprint: activeSprintId, labels: ["content"] },
-    { title: "Add welcome email", status: "todo", priority: "medium", assignees: [alice._id], sprint: activeSprintId },
-    { title: "Rate-limit login endpoint", status: "todo", priority: "high", assignees: [bob._id], sprint: activeSprintId, labels: ["security"] },
-    { title: "Sprint 13: dashboard spike", status: "backlog", priority: "medium", assignees: [], sprint: nextSprintId },
-    { title: "Sprint 13: CSV export format", status: "backlog", priority: "low", assignees: [], sprint: nextSprintId },
-    { title: "Investigate slow board query", status: "backlog", priority: "medium", assignees: [dave._id], sprint: null, labels: ["performance"] },
-    { title: "Upgrade to Next.js 16", status: "done", priority: "medium", assignees: [alice._id], sprint: null },
-    { title: "Write API error-handling guide", status: "backlog", priority: "low", assignees: [carol._id], sprint: null, labels: ["docs"] },
+  const specs: EpicSpec[] = [
+    {
+      title: "Onboarding flow",
+      description: "Everything a new member sees in their first five minutes.",
+      priority: "high",
+      sprint: activeSprintId,
+      assignees: [alice._id],
+      labels: ["frontend"],
+      // Mixed → rolls up to "active", 2/5 closed.
+      tasks: [
+        { title: "Design the wizard", status: "closed", priority: "high", assignees: [carol._id], labels: ["design"] },
+        { title: "Step 1: profile", status: "closed", priority: "high", assignees: [alice._id] },
+        { title: "Step 2: invite team", status: "resolved", priority: "medium", assignees: [bob._id] },
+        { title: "Step 3: first epic", status: "active", priority: "medium", assignees: [alice._id] },
+        { title: "Welcome email", status: "new", priority: "low", assignees: [] },
+      ],
+    },
+    {
+      title: "Billing integration",
+      description: "Stripe checkout + invoices.",
+      priority: "urgent",
+      sprint: activeSprintId,
+      assignees: [bob._id],
+      labels: ["backend"],
+      // All new → rolls up to "new", 0/2 closed.
+      tasks: [
+        { title: "Spike: Stripe vs Paddle", status: "new", priority: "urgent", assignees: [bob._id] },
+        { title: "Model the invoice schema", status: "new", priority: "high", assignees: [dave._id] },
+      ],
+    },
+    {
+      title: "Safari bug bash",
+      priority: "medium",
+      sprint: activeSprintId,
+      assignees: [dave._id],
+      labels: ["bug"],
+      // All closed → rolls up to "closed", 3/3.
+      tasks: [
+        { title: "Fix avatar upload", status: "closed", priority: "urgent", assignees: [dave._id], labels: ["bug"] },
+        { title: "Fix sticky header", status: "closed", priority: "medium", assignees: [dave._id] },
+        { title: "Fix date picker", status: "closed", priority: "low", assignees: [carol._id] },
+      ],
+    },
+    {
+      title: "Accessibility audit",
+      priority: "medium",
+      sprint: activeSprintId,
+      assignees: [carol._id],
+      labels: ["a11y"],
+      // All resolved → rolls up to "resolved" (done, awaiting verification).
+      tasks: [
+        { title: "Keyboard traps", status: "resolved", priority: "high", assignees: [carol._id] },
+        { title: "Colour contrast", status: "resolved", priority: "medium", assignees: [carol._id] },
+      ],
+    },
+    {
+      title: "Design system refresh",
+      description: "No tasks yet — shows the empty-epic state.",
+      priority: "low",
+      sprint: activeSprintId,
+      assignees: [],
+      tasks: [],
+    },
+    {
+      title: "Reporting & CSV export",
+      priority: "medium",
+      sprint: nextSprintId,
+      assignees: [alice._id],
+      tasks: [
+        { title: "Dashboard spike", status: "new", priority: "medium", assignees: [] },
+        { title: "CSV column format", status: "new", priority: "low", assignees: [carol._id], labels: ["docs"] },
+      ],
+    },
+    {
+      title: "Performance pass",
+      description: "Unscheduled — lives in the backlog.",
+      priority: "low",
+      sprint: null,
+      assignees: [dave._id],
+      labels: ["performance"],
+      tasks: [
+        { title: "Investigate slow board query", status: "new", priority: "medium", assignees: [dave._id] },
+        { title: "Add Mongo indexes", status: "active", priority: "low", assignees: [dave._id] },
+      ],
+    },
   ];
 
-  // Assign an incrementing order within each status column.
-  const orderByStatus: Record<string, number> = {};
-  const taskDocs: TaskDoc[] = specs.map((spec) => {
-    const order = (orderByStatus[spec.status] = (orderByStatus[spec.status] ?? 0) + 1);
-    return {
-      _id: new ObjectId(),
+  const epicDocs: EpicDoc[] = [];
+  const taskDocs: TaskDoc[] = [];
+
+  // Row order is per sprint (and per backlog); card order is per (epic, status).
+  const rowOrderBySprint = new Map<string, number>();
+
+  for (const spec of specs) {
+    const sprintKey = spec.sprint?.toString() ?? "backlog";
+    const rowOrder = (rowOrderBySprint.get(sprintKey) ?? 0) + 1;
+    rowOrderBySprint.set(sprintKey, rowOrder);
+
+    const epicId = new ObjectId();
+    epicDocs.push({
+      _id: epicId,
       workspaceId,
       sprintId: spec.sprint,
       title: spec.title,
       description: spec.description,
-      status: spec.status,
       priority: spec.priority,
       assigneeIds: spec.assignees,
       reporterId: alice._id,
       labels: spec.labels ?? [],
-      order,
+      order: rowOrder,
       dueDate: null,
       createdAt: now,
       updatedAt: now,
-    };
-  });
+    });
+
+    const cardOrderByStatus = new Map<TaskStatus, number>();
+    for (const task of spec.tasks) {
+      const cardOrder = (cardOrderByStatus.get(task.status) ?? 0) + 1;
+      cardOrderByStatus.set(task.status, cardOrder);
+
+      taskDocs.push({
+        _id: new ObjectId(),
+        workspaceId,
+        epicId,
+        title: task.title,
+        status: task.status,
+        priority: task.priority,
+        assigneeIds: task.assignees,
+        reporterId: alice._id,
+        labels: task.labels ?? [],
+        order: cardOrder,
+        dueDate: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  }
+
+  await epicsCollection().insertMany(epicDocs);
   await tasksCollection().insertMany(taskDocs);
 
   console.log("→ Rebuilding wiki pages…");
@@ -199,7 +317,9 @@ async function seed() {
 
   console.log("\n✅ Seed complete.");
   console.log("   Workspace: Demo Team (slug: demo)");
-  console.log(`   ${taskDocs.length} tasks, 2 sprints, 2 wiki pages`);
+  console.log(
+    `   ${epicDocs.length} epics, ${taskDocs.length} tasks, 2 sprints, 2 wiki pages`,
+  );
   console.log("\n   Log in with any of these (password for all):");
   console.log(`   password: ${DEMO_PASSWORD}`);
   console.log("   • alice@demo.test  (owner)");

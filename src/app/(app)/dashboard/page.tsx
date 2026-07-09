@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireContext } from "@/lib/session";
-import { tasksCollection, sprintsCollection } from "@/lib/db/collections";
+import {
+  tasksCollection,
+  sprintsCollection,
+  epicsCollection,
+} from "@/lib/db/collections";
 import { toObjectId } from "@/lib/models/common";
 import {
   TASK_STATUSES,
   TASK_STATUS_LABELS,
-  serializeTask,
   type TaskStatus,
-} from "@/lib/models/task";
+} from "@/lib/models/enums";
+import { serializeTask } from "@/lib/models/task";
 import {
   Card,
   CardContent,
@@ -36,7 +40,7 @@ export default async function DashboardPage() {
 
   // Fetch the per-column counts, the active sprint, and the most recently
   // touched tasks in parallel — three independent reads.
-  const [grouped, activeSprint, recentDocs] = await Promise.all([
+  const [grouped, activeSprint, recentDocs, epicCount] = await Promise.all([
     tasks
       .aggregate<{ _id: TaskStatus; count: number }>([
         { $match: { workspaceId } },
@@ -45,6 +49,7 @@ export default async function DashboardPage() {
       .toArray(),
     sprintsCollection().findOne({ workspaceId, status: "active" }),
     tasks.find({ workspaceId }).sort({ updatedAt: -1 }).limit(6).toArray(),
+    epicsCollection().countDocuments({ workspaceId }),
   ]);
 
   // Normalise the aggregation into a full status→count map (zero-filled).
@@ -68,7 +73,7 @@ export default async function DashboardPage() {
       </header>
 
       {/* Per-column task counts */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {TASK_STATUSES.map((status) => (
           <Card key={status}>
             <CardHeader className="pb-2">
@@ -155,7 +160,8 @@ export default async function DashboardPage() {
       </div>
 
       <p className="text-center text-xs text-muted-foreground">
-        Total tasks in workspace: {total}
+        {epicCount} {epicCount === 1 ? "epic" : "epics"} · {total}{" "}
+        {total === 1 ? "task" : "tasks"} in this workspace
       </p>
     </div>
   );

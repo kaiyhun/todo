@@ -1,64 +1,50 @@
 /**
- * Task model — the core work item.
+ * Task model — a unit of work that lives inside an Epic and moves across the
+ * board's status columns.
  *
- * Tasks belong to a workspace and optionally to a sprint. `status` doubles as the
- * board column, and `order` is the sort key within a column so cards can be
- * re-ordered by drag-and-drop without renumbering siblings on every move.
+ * Board geometry: rows are Epics, columns are the four statuses below. A task is
+ * therefore addressed by the cell `(epicId, status)`, and `order` sorts the
+ * cards within that cell. Dragging a card changes its `status` (horizontal) and
+ * may also change its `epicId` (vertical → re-parent to another epic).
  */
 import { z } from "zod";
 import type { ObjectId } from "mongodb";
-import { serializeDate, type BaseDoc } from "./common";
-
-/** Board columns, in display order. `status` is one of these values. */
-export const TASK_STATUSES = [
-  "backlog",
-  "todo",
-  "in_progress",
-  "in_review",
-  "done",
-] as const;
-export type TaskStatus = (typeof TASK_STATUSES)[number];
-
-/** Human-readable labels for each column/status. */
-export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  backlog: "Backlog",
-  todo: "To Do",
-  in_progress: "In Progress",
-  in_review: "In Review",
-  done: "Done",
-};
-
-export const TASK_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
-export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+import { objectIdSchema, serializeDate, type BaseDoc } from "./common";
+import {
+  PRIORITIES,
+  TASK_STATUSES,
+  type Priority,
+  type TaskStatus,
+} from "./enums";
 
 /** A task as stored in the `tasks` collection. */
 export interface TaskDoc extends BaseDoc {
   workspaceId: ObjectId;
-  /** `null` means the task is in the backlog (not assigned to a sprint). */
-  sprintId: ObjectId | null;
+  /** Parent epic — every task belongs to exactly one epic (its board row). */
+  epicId: ObjectId;
   title: string;
   description?: string;
   status: TaskStatus;
-  priority: TaskPriority;
+  priority: Priority;
   /** Member assignments (a task may have zero or more assignees). */
   assigneeIds: ObjectId[];
   /** The user who created the task. */
   reporterId: ObjectId;
   labels: string[];
-  /** Sort key within the task's current column (ascending). */
+  /** Sort key within the task's `(epicId, status)` cell, ascending. */
   order: number;
   dueDate?: Date | null;
 }
 
-/** JSON-safe task DTO for Client Components (board, lists, detail views). */
+/** JSON-safe task DTO for Client Components (board cards, lists, detail views). */
 export interface Task {
   id: string;
   workspaceId: string;
-  sprintId: string | null;
+  epicId: string;
   title: string;
   description?: string;
   status: TaskStatus;
-  priority: TaskPriority;
+  priority: Priority;
   assigneeIds: string[];
   reporterId: string;
   labels: string[];
@@ -72,7 +58,7 @@ export function serializeTask(doc: TaskDoc): Task {
   return {
     id: doc._id.toString(),
     workspaceId: doc.workspaceId.toString(),
-    sprintId: doc.sprintId ? doc.sprintId.toString() : null,
+    epicId: doc.epicId.toString(),
     title: doc.title,
     description: doc.description,
     status: doc.status,
@@ -87,24 +73,20 @@ export function serializeTask(doc: TaskDoc): Task {
   };
 }
 
-// An ObjectId is a 24-character hex string; validate ids that arrive from forms.
-const objectIdString = z
-  .string()
-  .regex(/^[a-f0-9]{24}$/i, "Invalid id");
-
+/** Accepts a `datetime-local`/ISO string or nothing, coerced to a Date. */
 const optionalDate = z
   .string()
   .optional()
   .transform((v) => (v ? new Date(v) : null));
 
-/** Fields accepted when creating a task. Server fills in reporter/order/etc. */
+/** Fields accepted when creating a task. The server fills in reporter + order. */
 export const createTaskSchema = z.object({
+  epicId: objectIdSchema,
   title: z.string().trim().min(1, "Title is required").max(200),
   description: z.string().trim().max(10_000).optional(),
-  status: z.enum(TASK_STATUSES).default("todo"),
-  priority: z.enum(TASK_PRIORITIES).default("medium"),
-  sprintId: objectIdString.nullable().optional(),
-  assigneeIds: z.array(objectIdString).default([]),
+  status: z.enum(TASK_STATUSES).default("new"),
+  priority: z.enum(PRIORITIES).default("medium"),
+  assigneeIds: z.array(objectIdSchema).default([]),
   labels: z.array(z.string().trim().min(1).max(40)).default([]),
   dueDate: optionalDate,
 });
@@ -114,11 +96,20 @@ export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export const updateTaskSchema = createTaskSchema.partial();
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 
-/** Payload for a drag-and-drop move on the board. */
+/**
+ * Payload for a board drag.
+ *
+ * `orderedIds` is the destination cell's complete, final list of task ids
+ * (including the moved task). The server rewrites `order` from that array's
+ * indices, which sidesteps fractional-index drift entirely — cells hold only a
+ * handful of cards, so rewriting them is cheap.
+ */
 export const moveTaskSchema = z.object({
-  taskId: objectIdString,
-  status: z.enum(TASK_STATUSES),
-  /** New sort position within the destination column. */
-  order: z.number(),
+  taskId: objectIdSchema,
+  /** Destination epic — differs from the current one when re-parenting. */
+  toEpicId: objectIdSchema,
+  /** Destination column. */
+  toStatus: z.enum(TASK_STATUSES),
+  orderedIds: z.array(objectIdSchema).min(1),
 });
 export type MoveTaskInput = z.infer<typeof moveTaskSchema>;

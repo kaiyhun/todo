@@ -28,7 +28,9 @@ Vercel Hobby (free) tier with MongoDB Atlas.
   protection lives in `src/proxy.ts`.
 - **Async request APIs** — `cookies`, `headers`, `params`, `searchParams` are
   async‑only; all reads `await` them.
-- Turbopack is the default builder; the production build runs it on Vercel.
+- Turbopack is the default builder, but 16.2.10's Turbopack crashes on the
+  Tailwind v4 PostCSS worker, so `dev`/`build` use `--webpack`. `dev:turbo` /
+  `build:turbo` remain for when the upstream fix lands.
 
 ---
 
@@ -46,15 +48,24 @@ lib/
   db/
     mongodb.ts             Cached MongoClient singleton (serverless-safe)
     collections.ts         Typed collection accessors + collection names
-    indexes.ts             ensureIndexes() (idempotent)
+    indexes.ts             ensureIndexes() (idempotent) + stale-index cleanup
   models/                  One file per entity: XDoc (DB) + X (DTO) + serializeX + zod
-    common.ts user.ts workspace.ts sprint.ts task.ts wiki.ts index.ts
+    enums.ts               ⚠ dependency-free: statuses + priorities (client-safe)
+    epic-progress.ts       ⚠ dependency-free: rollupEpicStatus / computeEpicProgress
+    common.ts user.ts workspace.ts sprint.ts epic.ts task.ts wiki.ts index.ts
   auth/
     local-mode.ts          isLocalMode() + fixed local ids (edge-safe)
     local-context.ts       ensureLocalUser()/ensureLocalWorkspace()
     credentials.ts         hashPassword/verifyPassword + authorize()
+  queries/
+    board.ts               getBoardData() — sprint + epic rows + bucketed tasks
   actions/
+    types.ts               ActionResult discriminated unions
     auth.ts                register / login / logout Server Actions
+    epics.ts               createEpic / deleteEpic (cascades tasks)
+    tasks.ts               createTask / moveTask / deleteTask
+  board-types.ts           BoardRow/BoardData + cell-id encode/decode (pure)
+  board-state.ts           Pure, immutable drag transitions (findTaskLocation, moveTask)
   session.ts               getCurrentUser / requireUser / getCurrentContext
   workspace.ts             getWorkspaceForUser / createWorkspaceForUser
   navigation.ts format.ts utils.ts
@@ -62,6 +73,9 @@ lib/
 components/
   providers.tsx theme-toggle.tsx coming-soon.tsx
   app-shell/  sidebar.tsx  user-menu.tsx
+  board/      board-grid.tsx (DndContext) board-cell.tsx task-card.tsx
+              epic-row-header.tsx quick-add-task.tsx sprint-switcher.tsx
+              create-epic-dialog.tsx badges.tsx
   ui/         (shadcn components)
 
 app/
@@ -105,18 +119,40 @@ accounts. Everything else (board, tasks, wiki) works identically.
 
 ## 3. Data model (MongoDB)
 
+The board is a **grid**: each **epic** is a row, each **status** is a column, and
+the **tasks** inside an epic are the cards laid out across those columns.
+
+```
+            │  New   │  Active  │ Resolved │  Closed
+────────────┼────────┼──────────┼──────────┼──────────
+ Epic A     │ [task] │  [task]  │          │  [task]
+ Epic B     │ [task] │          │  [task]  │
+```
+
 | Collection | Key fields | Indexes |
 | --- | --- | --- |
 | `users` | email (unique, lowercased), name, passwordHash?, image?, role | `{email}` unique |
 | `workspaces` | name, slug (unique), members[]:{userId, role, joinedAt} | `{slug}` unique, `{members.userId}` |
 | `sprints` | workspaceId, name, goal?, status(planned/active/completed), start/endDate | `{workspaceId,status}` |
-| `tasks` | workspaceId, sprintId\|null, title, description?, status, priority, assigneeIds[], reporterId, labels[], order, dueDate? | `{workspaceId,status,order}`, `{workspaceId,sprintId}`, `{assigneeIds}` |
+| `epics` | workspaceId, sprintId\|null, title, description?, priority, assigneeIds[], reporterId, labels[], order, dueDate? | `{workspaceId,sprintId,order}` |
+| `tasks` | workspaceId, **epicId**, title, description?, status, priority, assigneeIds[], reporterId, labels[], order, dueDate? | `{workspaceId,epicId,status,order}`, `{epicId}`, `{assigneeIds}` |
 | `wikiPages` | workspaceId, title, slug, content(md), parentId\|null, authorId, updatedById | `{workspaceId,slug}` unique, `{workspaceId,parentId}` |
 
-- **Board columns == task `status`**: `backlog · todo · in_progress · in_review · done`.
-- **`order`** is a per‑column sort key so drag‑and‑drop reordering doesn't renumber siblings.
-- `sprintId: null` ⇒ the task is in the backlog.
-- Indexes are created idempotently by `ensureIndexes()` (run from `npm run seed`).
+- **Board columns == task `status`**: `new · active · resolved · closed`.
+- **Every task belongs to exactly one epic** (`epicId` is required). Tasks inherit
+  their sprint from that epic.
+- **An epic has no stored status.** It is *derived* from its tasks by
+  `rollupEpicStatus()`: no tasks → `new`; all closed → `closed`; all
+  resolved/closed → `resolved`; any progress → `active`; else `new`. The row also
+  shows `closed/total` progress. The same pure function runs on the server and in
+  the browser, so the badge updates live mid‑drag.
+- `sprintId: null` on an epic ⇒ it's in the backlog (`/board?sprint=backlog`).
+- **`order`** sorts cards within an `(epicId, status)` cell. A drag sends the
+  destination cell's final ordered id list; the server rewrites `order` from the
+  array indices. That makes moves idempotent and avoids fractional‑index drift —
+  a status change, a re‑parent, and a reorder are all the same write.
+- Indexes are created idempotently by `ensureIndexes()` (run from `npm run seed`),
+  which also drops indexes left over from the pre‑Epic schema.
 
 ---
 
@@ -139,18 +175,35 @@ Atlas; the auth proxy redirects unauthenticated `/dashboard` → `/login`.
 
 ---
 
-### ⬜ M1 — Sprint board (Kanban)
+### ✅ M1 — Sprint board (swimlane Kanban)
 Drag‑and‑drop board — the headline feature.
-- Add `@dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities`.
-- `GET` board data (tasks grouped by status) in a Server Component; client board
-  for interaction. Columns = statuses; cards show title, priority, assignee avatars.
-- `moveTask` Server Action (uses `moveTaskSchema`) to persist status + `order`;
-  optimistic UI with rollback on failure.
-- Inline "add task" per column; sprint switcher (active/planned/backlog).
+- Introduced the **Epic → Task** hierarchy; statuses became `new/active/resolved/closed`.
+- Board grid: epic rows × status columns. Each `(epic, status)` cell is its own
+  droppable, so **empty cells accept drops**.
+- Dragging a card **left/right** changes its status; dragging it **up/down into
+  another row re‑parents it** to that epic. Both persist through one
+  `moveTaskAction`.
+- Optimistic UI with a drag‑start snapshot for rollback + an error toast; no‑op
+  drops never hit the database.
+- Epic rows show a derived status badge + progress bar, recomputed live.
+- Inline quick‑add in each row's New cell; `New epic` dialog; sprint switcher
+  (`/board?sprint=<id>` or `backlog`); epic delete cascades its tasks.
+- Keyboard DnD wired via `KeyboardSensor` + `sortableKeyboardCoordinates`.
 
-**Key files:** `app/(app)/board/*`, `components/board/*`, `lib/actions/tasks.ts`.
-**Acceptance:** drag a card across columns → persists after reload; reorder within
-a column → persists; create a task inline; switch sprints.
+**Key files:** `app/(app)/board/page.tsx`, `components/board/*`,
+`lib/queries/board.ts`, `lib/board-state.ts`, `lib/actions/{epics,tasks}.ts`.
+
+**Acceptance (met):** typecheck + lint clean; verified in a real browser against
+Atlas — dragged a card across columns and re‑parented one into another epic's row,
+both persisted (confirmed by querying MongoDB directly) and survived a reload;
+quick‑add works; all five rollup branches render correctly; 0 console errors.
+
+Two real bugs were found and fixed during verification:
+1. **Hydration mismatch** — `DndContext` needs an explicit `id`, otherwise dnd‑kit
+   derives `aria-describedby` from a module counter that differs across SSR.
+2. **Fast Refresh loop** — the Playwright MCP writes console logs into
+   `.playwright-mcp/` inside the project; the dev watcher rebuilt on every browser
+   log. Excluded in `next.config.ts` `watchOptions.ignored`.
 
 ---
 
@@ -223,8 +276,8 @@ re‑login works.
 3. **Env vars** in Vercel (Production + Preview):
    `MONGODB_URI`, `MONGODB_DB=todo`, `AUTH_SECRET` (generate with `npx auth secret`),
    `LOCAL_MODE=false`.
-4. **Deploy** — the default Turbopack build runs. `outputFileTracingRoot` is pinned
-   in `next.config.ts` so tracing is correctly scoped.
+4. **Deploy** — runs `npm run build` (webpack; see the Turbopack note above).
+   `outputFileTracingRoot` is pinned in `next.config.ts` so tracing is scoped.
 5. After first deploy, run the seed **against prod only if you want demo data**
    (`MONGODB_DB=todo npm run seed`) — otherwise register real accounts.
 
@@ -245,7 +298,7 @@ See `.env.example`. `.env.local` is gitignored.
 
 ## 7. Verification approach
 - **Types:** `npm run typecheck` (CI gate).
-- **Build:** `npm run build` (Turbopack) — needs a machine with adequate RAM.
+- **Build:** `npm run build` (webpack) — needs ~1 GB free RAM.
 - **Data:** `npm run seed` exercises the full data layer against a real cluster.
 - **E2E (M7):** Playwright MCP drives login + board flows; Chrome DevTools MCP for
   perf/console; each milestone is verified by driving the real flow, not just tests.

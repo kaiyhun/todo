@@ -1,27 +1,28 @@
 "use client";
 
-import * as React from "react";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 
-/** Toggles between light and dark. Renders a stable icon until mounted to avoid
- *  a hydration mismatch (the resolved theme is only known on the client). */
+/**
+ * Toggles between light and dark.
+ *
+ * Both icons are always rendered and CSS picks which one is visible via the
+ * `dark` variant. That keeps the server and client markup identical — no
+ * hydration mismatch, and no `mounted` state to track.
+ */
 export function ThemeToggle() {
   const { setTheme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => setMounted(true), []);
-
-  const isDark = mounted && resolvedTheme === "dark";
 
   return (
     <Button
       variant="ghost"
       size="icon"
       aria-label="Toggle theme"
-      onClick={() => setTheme(isDark ? "light" : "dark")}
+      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
     >
-      {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+      <Sun className="hidden size-4 dark:block" />
+      <Moon className="size-4 dark:hidden" />
     </Button>
   );
 }
