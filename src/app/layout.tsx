@@ -28,7 +28,10 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">
+      {/* Browser extensions (Grammarly, password managers, …) inject attributes
+          onto <body> before React hydrates, which React reports as a mismatch.
+          This suppresses only this element's own attributes, not its children. */}
+      <body suppressHydrationWarning className="flex min-h-full flex-col">
         <Providers>{children}</Providers>
         <Toaster richColors position="top-right" />
       </body>

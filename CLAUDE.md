@@ -53,6 +53,14 @@ Deploys on Vercel Hobby. Full plan: `IMPLEMENTATION_PLAN.md`.
   Matching runs on raw markdown; snippets use `stripMarkdown()` from `lib/text.ts`.
   Always escape user input with `escapeRegex()` before a `$regex`.
 
+## Dates & hydration
+- `formatDate()` pins **locale `en-US` and `timeZone: "UTC"`**. Don't "fix" it to use
+  the viewer's locale: it runs inside Client Components (SSR + hydration), and due
+  dates are stored as UTC midnight, so a local timezone renders them a day early.
+- `<body>` has `suppressHydrationWarning` because browser extensions (Grammarly,
+  password managers) inject attributes before React hydrates. It only covers that
+  element's own attributes — a mismatch anywhere else is a real bug.
+
 ## Permissions
 - **Loose model** (`src/lib/permissions.ts`): roles gate *people management* only.
   Every member can create/edit/move/delete epics and tasks. Don't add role checks
