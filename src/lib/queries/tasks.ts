@@ -8,6 +8,7 @@ import "server-only";
 import type { Filter } from "mongodb";
 import { epicsCollection, tasksCollection, usersCollection } from "@/lib/db/collections";
 import { isValidObjectId, toObjectId } from "@/lib/models/common";
+import { escapeRegex } from "@/lib/text";
 import { serializeEpic, type EpicDoc } from "@/lib/models/epic";
 import { serializeTask, type TaskDoc } from "@/lib/models/task";
 import { getWorkspaceMembers } from "./members";
@@ -25,11 +26,6 @@ import type {
  * RSC payload. When it bites, the UI says so rather than silently truncating.
  */
 const MAX_ROWS = 200;
-
-/** Escape user input before embedding it in a `$regex`. */
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 function toEpicOption(doc: EpicDoc): EpicOption {
   return {

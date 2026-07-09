@@ -3,8 +3,8 @@
  */
 import { ObjectId } from "mongodb";
 import { workspacesCollection } from "@/lib/db/collections";
-import { toObjectId } from "@/lib/models/common";
-import { slugify, type WorkspaceDoc } from "@/lib/models/workspace";
+import { slugify, toObjectId } from "@/lib/models/common";
+import type { WorkspaceDoc } from "@/lib/models/workspace";
 
 /** The first workspace the given user is a member of, or `null`. */
 export async function getWorkspaceForUser(

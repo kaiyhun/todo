@@ -37,6 +37,22 @@ Deploys on Vercel Hobby. Full plan: `IMPLEMENTATION_PLAN.md`.
 - Filters/views live in the **URL** (`?sprint=`, `?q=`, `?status=`…) and are applied
   server-side. Escape any user string before putting it in a `$regex`.
 
+## Wiki
+- Markdown renders via `components/wiki/markdown.tsx` — **no `"use client"`**, so
+  the view page renders it server-side and ships no JS for it.
+- **Never add `rehype-raw`.** Raw HTML is escaped today, which is what keeps this
+  path free of XSS. Enabling it requires `rehype-sanitize` with an allow-list.
+- Renaming a page retires its old slug into `slugAliases[]`; `getWikiPageBySlug`
+  matches either and the route 308s to the canonical URL. Keep aliases unambiguous:
+  a page's canonical slug must never remain in another page's aliases.
+- Deleting a page **lifts its children** to the deleted page's parent.
+- Tailwind Typography styles live in a later cascade layer, so `prose` overrides in
+  `globals.css` are intentionally **unlayered** — layer order beats specificity.
+- Sidebar search is client state + a Server Action, **not** a `?q=` param: the tree
+  is rendered by `wiki/layout.tsx` and Next.js layouts get no `searchParams`.
+  Matching runs on raw markdown; snippets use `stripMarkdown()` from `lib/text.ts`.
+  Always escape user input with `escapeRegex()` before a `$regex`.
+
 ## Permissions
 - **Loose model** (`src/lib/permissions.ts`): roles gate *people management* only.
   Every member can create/edit/move/delete epics and tasks. Don't add role checks

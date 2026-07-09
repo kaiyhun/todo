@@ -314,13 +314,77 @@ buttons — role resolves per user from workspace membership:
 
 ---
 
-### ⬜ M4 — Wiki
-- Page tree (nested via `parentId`) in a sidebar.
-- Markdown editor with live preview; render with a sanitized markdown renderer.
-- Create/edit/delete pages; unique slug per workspace; breadcrumbs.
+### ✅ M4 — Wiki
+- **Page tree** (nested via `parentId`) in the wiki layout, with breadcrumbs on
+  each page. `/wiki` lands on the first top-level page.
+- **Split-pane editor**: markdown source on the left, live preview on the right.
+  The preview renders from a `useDeferredValue` copy so a long document never
+  blocks typing.
+- **Rendering** via `react-markdown` + `remark-gfm` (tables, task lists,
+  strikethrough, autolinks) + `rehype-highlight` for fenced code blocks.
+- **The view page ships zero client JS for markdown.** `react-markdown` uses no
+  hooks, so it renders inside a Server Component; only the editor's preview pulls
+  it into the browser bundle.
+- **No XSS surface.** `rehype-raw` is deliberately *not* installed, so raw HTML in
+  page content is escaped rather than rendered — there is no
+  `dangerouslySetInnerHTML` in this path — and `react-markdown` neutralises
+  `javascript:` URLs. Enabling raw HTML later would require an explicit sanitizer
+  with an allow-list.
+- **Renaming keeps old links alive.** A new title regenerates the slug; the old
+  one is retired into `slugAliases[]` (new field + index) and the route serves a
+  **308** to the canonical URL. A renamed page's new slug is also stripped from any
+  other page's aliases, so the lookup can never be ambiguous.
+- **Deleting lifts children** to the deleted page's parent rather than cascading.
+- **Cycle-safe re-parenting**: the parent picker omits the page's own subtree, and
+  `updateWikiPageAction` re-walks the ancestor chain to reject a cycle anyway.
+- Code-block colours are mapped onto our own CSS variables instead of importing a
+  highlight.js stylesheet, so they follow the light/dark theme.
 
-**Acceptance:** create a nested page; edit markdown and see it rendered; navigate
-the tree; delete a page (with children handled).
+- **Inline sidebar search** over `title`, `content`, `slug` and `slugAliases`,
+  scoped to the workspace. Matching runs against the **raw markdown** (so a term
+  inside a code fence is findable); snippets are built from a markdown-stripped
+  copy. The tree is pruned to matching branches, with ancestors kept as dimmed
+  context so a nested hit never appears orphaned. Matches are highlighted; a
+  slug-only hit is labelled "matched in page URL".
+  - A regex scan beats a `$text` index here: `onboard` finds `onboarding`, which
+    `$text` would miss (that's a prefix, not a word). User input goes through the
+    same `escapeRegex()` the tasks filter uses.
+  - Search is **client state calling a Server Action**, not a `?q=` URL param,
+    because the tree lives in `wiki/layout.tsx` and **Next.js layouts never receive
+    `searchParams`**. Debounced 250 ms, with a stale-response guard.
+
+**Key files:** `lib/models/wiki.ts`, `lib/queries/wiki.ts`, `lib/actions/wiki.ts`,
+`lib/wiki-types.ts`, `lib/wiki-search.ts`, `lib/text.ts`, `app/(app)/wiki/*`,
+`components/wiki/*`.
+
+**Acceptance (met):** typecheck + lint clean; 0 console errors. Verified in a real
+browser against Atlas — GFM table, task-list checkboxes (2 of 3 ticked), code
+blocks with highlight tokens and strikethrough all render; **`curl` of the raw HTML
+(no JS executed) contains `<table>`, `<pre>` and `hljs-*` classes**, proving the
+server render; renaming produced `308 → /wiki/onboarding` with the old slug stored
+as an alias; deleting a parent kept its child and promoted it to top level; the
+parent picker excluded the page's own child.
+
+**Security probe (attempted, not assumed).** A page containing `<script>`,
+`<img onerror>`, `<div onclick>` and `[x](javascript:…)` was saved and rendered:
+0 script tags, 0 img tags, 0 `onclick` attributes, the `javascript:` href stripped
+to `""`, the raw HTML shown as literal text, and the sentinel `window.__pwned`
+still `false` — in both the live preview and the saved page.
+
+Search was verified separately: `onboard` matches `Engineering Onboarding`
+(partial word); `sprints` matches on body text; `serializeTask` matches inside a
+fenced code block on the nested page and keeps `Team Handbook` as a dimmed
+ancestor; a slug hit is labelled; `.*` returns **0 results**; clearing restores the
+full tree. `stripMarkdown` originally mangled identifiers (`doc._id` → `doc.id`)
+because it blanket-stripped `*` and `_` — it now unwraps *paired* emphasis only,
+and underscore emphasis requires a whitespace boundary, as markdown itself does.
+
+> Three hazards worth remembering: `$addToSet` + `$pull` on the same array in one
+> update is a Mongo conflict (the alias array is computed in code instead);
+> Tailwind Typography paints `pre` from its own CSS variables in a later cascade
+> layer, so the override had to be **unlayered** CSS — layer order beats
+> specificity; and layouts get no `searchParams`, which is why wiki search can't
+> follow the `?q=` pattern used everywhere else.
 
 ---
 

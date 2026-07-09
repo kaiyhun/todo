@@ -43,5 +43,19 @@ export const objectIdSchema = z
   .string()
   .regex(/^[a-f0-9]{24}$/i, "Invalid id");
 
+/**
+ * Turn free text into a URL-safe slug (`My Team!` → `my-team`).
+ * Shared by workspaces and wiki pages. Never returns a leading/trailing dash.
+ */
+export function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48)
+    .replace(/-+$/g, "");
+}
+
 // Status/priority enums live in `./enums` — a dependency-free module, so Client
 // Components can import them without pulling in zod or the Mongo driver.

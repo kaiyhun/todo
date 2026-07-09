@@ -60,6 +60,8 @@ export async function ensureIndexes(): Promise<void> {
       .collection(COLLECTIONS.wikiPages)
       .createIndex({ workspaceId: 1, slug: 1 }, { unique: true }),
     db.collection(COLLECTIONS.wikiPages).createIndex({ workspaceId: 1, parentId: 1 }),
+    // Old slugs keep resolving after a rename; this backs that fallback lookup.
+    db.collection(COLLECTIONS.wikiPages).createIndex({ workspaceId: 1, slugAliases: 1 }),
   ]);
 
   await dropStaleTaskIndexes();
