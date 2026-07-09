@@ -259,16 +259,58 @@ Two hazards handled explicitly:
 
 ---
 
-### ⬜ M3 — Members & assignments
-- Members page: list workspace members with roles.
-- Invite by email (add an existing user; or a lightweight pending‑invite record).
-- Role management (owner/admin/member) with permission checks in actions.
-- **Assignee picker** (multi‑select with avatars) in the task detail form and the
-  epic edit dialog. `updateTaskAction`/`updateEpicAction` already accept
-  `assigneeIds`; only the UI is missing. The assignee *filter* already ships (M2).
+### ✅ M3 — Members & assignments
+- **Members page**: roster with avatars, email, role, joined date. Owner/admins can
+  add, promote/demote, remove, and transfer ownership.
+- **Adding a teammate is by email, for an account that already exists.** There is
+  no mail provider, so nothing is sent: they register at `/register`, then an
+  owner/admin adds them. The "already a member" check is enforced atomically in the
+  update filter (`members.userId: { $ne }`), not just read-then-write.
+- **Permissions are loose** (`lib/permissions.ts`): roles gate *people management*
+  only — every member can create, edit, move and delete epics and tasks.
+  - owner: everything, and the only one who can transfer ownership
+  - admin: manage members, but never the owner
+  - member: content only
+  - Nobody can act on the owner or on themselves. Ownership moves *only* via an
+    explicit transfer, which promotes the new owner and demotes the old one in a
+    **single atomic update** (`arrayFilters`) so the workspace never has zero or
+    two owners.
+- **Removing a member unassigns them everywhere** — one `$pull` across all tasks
+  and one across all epics. Their user account and `reporterId` history survive.
+- **Assignee picker** (multi-select with avatars, built on `DropdownMenuCheckboxItem`
+  — no new dependency) in the task detail form and the epic edit dialog.
+- **"Assigned to me"** board toggle (`?mine=1`) **dims** other people's cards rather
+  than hiding them. Hiding would make a drag submit an incomplete `orderedIds` for
+  its cell (silently reordering other people's cards) and would make each epic's
+  rollup describe only a subset of its tasks.
+- `requireContext()` now returns the caller's `role`. In LOCAL_MODE it is forced to
+  `owner`, since authentication is disabled — the roster may still show the local
+  user's stored role, and the page says so.
 
-**Acceptance:** add/remove a member; change a role; assign multiple members to a
-task and see avatars on the card; non‑admins can't change roles.
+**Key files:** `lib/permissions.ts`, `lib/actions/members.ts`, `lib/member-types.ts`,
+`app/(app)/members/page.tsx`, `components/members/*`,
+`components/shared/assignee-picker.tsx`, `components/board/mine-filter-toggle.tsx`.
+
+**Acceptance (met):** typecheck + lint clean; 0 console errors. Verified in a real
+browser against Atlas — added a registered non-member by email (and got useful
+errors for an unknown email / an existing member); promoted a member to admin;
+removed a member and confirmed **5 task + 2 epic assignments were cleared** in the
+same operation; transferred ownership and confirmed the promote+demote landed
+atomically; assigned two people to a task via the picker; the `?mine=1` toggle dims
+to opacity 0.3 while **leaving every card rendered**.
+
+**Permission boundary checked with real logins** (LOCAL_MODE off), not just hidden
+buttons — role resolves per user from workspace membership:
+
+| Signed in as | Role | Add form | Action menus | Transfer |
+| --- | --- | --- | --- | --- |
+| Carol | member | ✗ | 0 | — |
+| Bob | admin | ✓ | 3 (not owner, not self) | ✗ |
+| Alice | owner | ✓ | 4 | ✓ |
+
+> The seed now makes the **LOCAL_MODE user the workspace owner** (Alice becomes
+> admin). Without that, the local user wasn't in the roster at all and every
+> people-management action would have been denied once role checks existed.
 
 ---
 

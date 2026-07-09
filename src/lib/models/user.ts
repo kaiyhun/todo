@@ -48,7 +48,7 @@ export function serializeUser(doc: UserDoc): User {
  * email format helper) to stay stable across Zod versions and to normalise the
  * value — trimmed + lowercased — before it is stored or compared.
  */
-const emailField = z
+export const emailSchema = z
   .string()
   .trim()
   .toLowerCase()
@@ -57,7 +57,7 @@ const emailField = z
 /** Input accepted by the registration action. */
 export const registerSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(80),
-  email: emailField,
+  email: emailSchema,
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
@@ -67,7 +67,7 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 
 /** Input accepted by the login form (validated again inside `authorize`). */
 export const loginSchema = z.object({
-  email: emailField,
+  email: emailSchema,
   password: z.string().min(1, "Password is required"),
 });
 export type LoginInput = z.infer<typeof loginSchema>;

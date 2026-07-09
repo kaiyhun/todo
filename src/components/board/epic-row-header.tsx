@@ -130,6 +130,7 @@ export function EpicRowHeader({
       <EditEpicDialog
         epic={epic}
         sprints={sprints}
+        members={members}
         open={editOpen}
         onOpenChange={setEditOpen}
       />

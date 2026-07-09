@@ -36,6 +36,19 @@ Deploys on Vercel Hobby. Full plan: `IMPLEMENTATION_PLAN.md`.
   and the intercepting `@modal/(.)tasks/[taskId]` (dialog). Keep them in sync.
 - Filters/views live in the **URL** (`?sprint=`, `?q=`, `?status=`…) and are applied
   server-side. Escape any user string before putting it in a `$regex`.
+
+## Permissions
+- **Loose model** (`src/lib/permissions.ts`): roles gate *people management* only.
+  Every member can create/edit/move/delete epics and tasks. Don't add role checks
+  to content actions.
+- `requireContext()` returns `{ user, workspace, role }`. In **LOCAL_MODE the role
+  is forced to `owner`** (auth is off) regardless of the stored membership.
+- Nobody may act on the owner or on themselves; ownership moves only via
+  `transferOwnershipAction` (atomic `arrayFilters` promote+demote).
+- Client components hide controls with the same predicates, but **the Server Action
+  is the boundary** — always re-check there.
+- The board's `?mine=1` filter **dims** cards; never remove them, or a drag will
+  submit an incomplete `orderedIds` for its cell.
 - **DB access** goes through typed accessors in `src/lib/db/collections.ts`.
 - **Auth is split**: `src/auth.config.ts` is edge‑safe (used by `src/proxy.ts`,
   no DB); `src/auth.ts` adds the Credentials provider (Node runtime only). Don't

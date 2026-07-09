@@ -67,9 +67,12 @@ export function TaskCardView({
 export function SortableTaskCard({
   task,
   members,
+  dimmed = false,
 }: {
   task: Task;
   members: BoardMember[];
+  /** Visually de-emphasised by the "Assigned to me" filter (still draggable). */
+  dimmed?: boolean;
 }) {
   const router = useRouter();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -110,7 +113,11 @@ export function SortableTaskCard({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn("cursor-grab touch-none", isDragging && "opacity-40")}
+      className={cn(
+        "cursor-grab touch-none transition-opacity",
+        dimmed && "opacity-30 hover:opacity-60",
+        isDragging && "opacity-40",
+      )}
       {...attributes}
       {...listeners}
       onPointerDown={handlePointerDown}

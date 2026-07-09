@@ -22,8 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AssigneePicker } from "@/components/shared/assignee-picker";
 import { PRIORITIES, PRIORITY_LABELS, type Priority } from "@/lib/models/enums";
-import { BACKLOG_VIEW } from "@/lib/board-types";
+import { BACKLOG_VIEW, type BoardMember } from "@/lib/board-types";
 import type { Epic } from "@/lib/models/epic";
 import type { Sprint } from "@/lib/models/sprint";
 
@@ -37,17 +38,20 @@ import type { Sprint } from "@/lib/models/sprint";
 export function EditEpicDialog({
   epic,
   sprints,
+  members,
   open,
   onOpenChange,
 }: {
   epic: Epic;
   sprints: Sprint[];
+  members: BoardMember[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const [title, setTitle] = useState(epic.title);
   const [description, setDescription] = useState(epic.description ?? "");
   const [priority, setPriority] = useState<Priority>(epic.priority);
+  const [assigneeIds, setAssigneeIds] = useState<string[]>(epic.assigneeIds);
   // `BACKLOG_VIEW` doubles as the "no sprint" option value (Radix forbids "").
   const [sprintId, setSprintId] = useState(epic.sprintId ?? BACKLOG_VIEW);
   const [pending, startTransition] = useTransition();
@@ -62,6 +66,7 @@ export function EditEpicDialog({
         title: trimmed,
         description: description.trim(),
         priority,
+        assigneeIds,
         sprintId: sprintId === BACKLOG_VIEW ? null : sprintId,
       });
 
@@ -143,6 +148,16 @@ export function EditEpicDialog({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-epic-assignees">Assignees</Label>
+              <AssigneePicker
+                id="edit-epic-assignees"
+                members={members}
+                value={assigneeIds}
+                onChange={setAssigneeIds}
+              />
             </div>
           </div>
 

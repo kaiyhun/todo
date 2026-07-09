@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/format";
 import { BoardGrid } from "@/components/board/board-grid";
 import { SprintSwitcher } from "@/components/board/sprint-switcher";
 import { CreateEpicDialog } from "@/components/board/create-epic-dialog";
+import { MineFilterToggle } from "@/components/board/mine-filter-toggle";
 
 export const metadata: Metadata = { title: "Board" };
 
@@ -15,10 +16,11 @@ export default async function BoardPage({
   searchParams,
 }: {
   // Next.js 16: `searchParams` is async and must be awaited.
-  searchParams: Promise<{ sprint?: string }>;
+  searchParams: Promise<{ sprint?: string; mine?: string }>;
 }) {
-  const { workspace } = await requireContext();
-  const { sprint: requestedView } = await searchParams;
+  const { user, workspace } = await requireContext();
+  const { sprint: requestedView, mine } = await searchParams;
+  const mineOnly = mine === "1";
 
   const [board, members] = await Promise.all([
     getBoardData(workspace.id, requestedView),
@@ -47,6 +49,7 @@ export default async function BoardPage({
         </div>
 
         <div className="flex items-center gap-2">
+          <MineFilterToggle active={mineOnly} />
           <SprintSwitcher
             sprints={board.sprints}
             view={board.view}
@@ -71,7 +74,13 @@ export default async function BoardPage({
           <CreateEpicDialog sprintId={sprintIdForNewEpic} />
         </div>
       ) : (
-        <BoardGrid rows={board.rows} members={members} sprints={board.sprints} />
+        <BoardGrid
+          rows={board.rows}
+          members={members}
+          sprints={board.sprints}
+          mineOnly={mineOnly}
+          currentUserId={user.id}
+        />
       )}
     </div>
   );

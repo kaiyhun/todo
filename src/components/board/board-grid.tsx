@@ -68,11 +68,16 @@ export function BoardGrid({
   rows: serverRows,
   members,
   sprints,
+  mineOnly,
+  currentUserId,
 }: {
   rows: BoardRow[];
   members: BoardMember[];
   /** Passed through to each row's Edit dialog, which can move an epic's sprint. */
   sprints: Sprint[];
+  /** "Assigned to me" — dims other people's cards without removing them. */
+  mineOnly: boolean;
+  currentUserId: string;
 }) {
   const [rows, setRows] = useState<BoardRowState[]>(() => toRowState(serverRows));
   const [syncedServerRows, setSyncedServerRows] = useState(serverRows);
@@ -289,6 +294,8 @@ export function BoardGrid({
                   status={status}
                   tasks={row.tasksByStatus[status]}
                   members={members}
+                  mineOnly={mineOnly}
+                  currentUserId={currentUserId}
                 />
               </div>
             ))}

@@ -7,7 +7,8 @@
  */
 import { z } from "zod";
 import type { ObjectId } from "mongodb";
-import type { BaseDoc } from "./common";
+import { objectIdSchema, type BaseDoc } from "./common";
+import { emailSchema } from "./user";
 
 export type WorkspaceRole = "owner" | "admin" | "member";
 
@@ -61,3 +62,25 @@ export const createWorkspaceSchema = z.object({
   name: z.string().trim().min(1, "Workspace name is required").max(80),
 });
 export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>;
+
+// ---------------------------------------------------------------------------
+// Membership
+// ---------------------------------------------------------------------------
+
+/** Add a teammate who has already registered an account. */
+export const addMemberSchema = z.object({
+  email: emailSchema,
+});
+export type AddMemberInput = z.infer<typeof addMemberSchema>;
+
+/**
+ * `owner` is intentionally absent: ownership never moves through a role change,
+ * only through an explicit transfer.
+ */
+export const updateMemberRoleSchema = z.object({
+  userId: objectIdSchema,
+  role: z.enum(["admin", "member"]),
+});
+export type UpdateMemberRoleInput = z.infer<typeof updateMemberRoleSchema>;
+
+export const memberIdSchema = z.object({ userId: objectIdSchema });

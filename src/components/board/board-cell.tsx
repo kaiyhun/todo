@@ -22,11 +22,16 @@ export function BoardCell({
   status,
   tasks,
   members,
+  mineOnly,
+  currentUserId,
 }: {
   epicId: string;
   status: TaskStatus;
   tasks: Task[];
   members: BoardMember[];
+  /** When on, cards not assigned to `currentUserId` are dimmed (not removed). */
+  mineOnly: boolean;
+  currentUserId: string;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: toCellId(epicId, status) });
 
@@ -44,7 +49,12 @@ export function BoardCell({
         strategy={verticalListSortingStrategy}
       >
         {tasks.map((task) => (
-          <SortableTaskCard key={task.id} task={task} members={members} />
+          <SortableTaskCard
+            key={task.id}
+            task={task}
+            members={members}
+            dimmed={mineOnly && !task.assigneeIds.includes(currentUserId)}
+          />
         ))}
       </SortableContext>
 

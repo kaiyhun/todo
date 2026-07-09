@@ -26,7 +26,12 @@ import {
   wikiPagesCollection,
 } from "@/lib/db/collections";
 import { hashPassword } from "@/lib/auth/credentials";
-import { LOCAL_WORKSPACE_ID } from "@/lib/auth/local-mode";
+import {
+  LOCAL_USER_EMAIL,
+  LOCAL_USER_ID,
+  LOCAL_USER_NAME,
+  LOCAL_WORKSPACE_ID,
+} from "@/lib/auth/local-mode";
 import type { UserDoc, UserRole } from "@/lib/models/user";
 import type { EpicDoc } from "@/lib/models/epic";
 import type { TaskDoc } from "@/lib/models/task";
@@ -88,6 +93,19 @@ async function seed() {
     upsertUser("Dave Park", "dave@demo.test", "member", passwordHash),
   ]);
 
+  // The LOCAL_MODE identity must be a member of the workspace it lands in,
+  // otherwise the members page shows a roster the local user isn't part of.
+  console.log("→ Ensuring the LOCAL_MODE user…");
+  const localUserId = new ObjectId(LOCAL_USER_ID);
+  await usersCollection().updateOne(
+    { _id: localUserId },
+    {
+      $set: { name: LOCAL_USER_NAME, role: "admin", updatedAt: now },
+      $setOnInsert: { email: LOCAL_USER_EMAIL, createdAt: now },
+    },
+    { upsert: true },
+  );
+
   console.log("→ Upserting demo workspace…");
   const workspaceId = new ObjectId(LOCAL_WORKSPACE_ID);
   await workspacesCollection().updateOne(
@@ -97,7 +115,11 @@ async function seed() {
         name: "Demo Team",
         slug: "demo",
         members: [
-          { userId: alice._id, role: "owner", joinedAt: now },
+          // Owner is the local user so LOCAL_MODE has full control out of the box.
+          // Alice is an admin, which exercises the "can manage people, can't
+          // transfer ownership" path when you log in as her.
+          { userId: localUserId, role: "owner", joinedAt: now },
+          { userId: alice._id, role: "admin", joinedAt: now },
           { userId: bob._id, role: "member", joinedAt: now },
           { userId: carol._id, role: "member", joinedAt: now },
           { userId: dave._id, role: "member", joinedAt: now },
@@ -322,11 +344,12 @@ async function seed() {
   );
   console.log("\n   Log in with any of these (password for all):");
   console.log(`   password: ${DEMO_PASSWORD}`);
-  console.log("   • alice@demo.test  (owner)");
+  console.log("   • alice@demo.test  (admin)");
   console.log("   • bob@demo.test    (member)");
   console.log("   • carol@demo.test  (member)");
   console.log("   • dave@demo.test   (member)");
-  console.log("\n   …or set LOCAL_MODE=true to skip login entirely.\n");
+  console.log("\n   …or set LOCAL_MODE=true to skip login entirely —");
+  console.log("   the local user is the workspace owner.\n");
 }
 
 seed()

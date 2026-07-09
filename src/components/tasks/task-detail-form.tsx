@@ -27,7 +27,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { AssigneeAvatars } from "@/components/board/badges";
+import { AssigneePicker } from "@/components/shared/assignee-picker";
 import { formatDate } from "@/lib/format";
 import {
   PRIORITIES,
@@ -44,8 +44,6 @@ import type { TaskDetail } from "@/lib/task-types";
  *
  * `onClose` is supplied by the modal (it calls `router.back()`); on the full page
  * it's absent and we simply refresh in place.
- *
- * Assignees are read-only here — assignment lands with the Members milestone (M3).
  */
 export function TaskDetailForm({
   detail,
@@ -62,6 +60,7 @@ export function TaskDetailForm({
   const [status, setStatus] = useState<TaskStatus>(task.status);
   const [priority, setPriority] = useState<Priority>(task.priority);
   const [epicId, setEpicId] = useState(task.epicId);
+  const [assigneeIds, setAssigneeIds] = useState<string[]>(task.assigneeIds);
   const [labels, setLabels] = useState(task.labels.join(", "));
   // <input type="date"> wants YYYY-MM-DD; the DTO carries a full ISO string.
   const [dueDate, setDueDate] = useState(task.dueDate ? task.dueDate.slice(0, 10) : "");
@@ -81,6 +80,7 @@ export function TaskDetailForm({
         status,
         priority,
         epicId,
+        assigneeIds,
         labels: labels
           .split(",")
           .map((label) => label.trim())
@@ -198,6 +198,16 @@ export function TaskDetailForm({
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="task-assignees">Assignees</Label>
+        <AssigneePicker
+          id="task-assignees"
+          members={members}
+          value={assigneeIds}
+          onChange={setAssigneeIds}
+        />
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="task-labels">Labels</Label>
         <Input
           id="task-labels"
@@ -219,17 +229,7 @@ export function TaskDetailForm({
       </div>
 
       {/* Read-only context */}
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border bg-muted/30 p-3 text-xs">
-        <div className="flex items-center gap-2">
-          <dt className="text-muted-foreground">Assignees</dt>
-          <dd>
-            {task.assigneeIds.length > 0 ? (
-              <AssigneeAvatars assigneeIds={task.assigneeIds} members={members} />
-            ) : (
-              <span className="text-muted-foreground">Unassigned</span>
-            )}
-          </dd>
-        </div>
+      <dl className="grid grid-cols-3 gap-x-4 gap-y-2 rounded-md border bg-muted/30 p-3 text-xs">
         <div className="flex items-center gap-2">
           <dt className="text-muted-foreground">Reporter</dt>
           <dd>{reporterName}</dd>
