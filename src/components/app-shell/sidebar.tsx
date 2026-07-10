@@ -21,11 +21,15 @@ export function Sidebar({
   workspaces,
   activeWorkspaceId,
   localMode,
+  canCreateWorkspace,
+  maxWorkspaces,
 }: {
   user: User;
   workspaces: WorkspaceOption[];
   activeWorkspaceId: string;
   localMode: boolean;
+  canCreateWorkspace: boolean;
+  maxWorkspaces: number;
 }) {
   const pathname = usePathname();
 
@@ -35,6 +39,8 @@ export function Sidebar({
         workspaces={workspaces}
         activeId={activeWorkspaceId}
         localMode={localMode}
+        canCreate={canCreateWorkspace}
+        maxWorkspaces={maxWorkspaces}
       />
 
       {/* Primary navigation */}

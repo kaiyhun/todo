@@ -15,8 +15,16 @@ import {
   workspacesCollection,
 } from "@/lib/db/collections";
 import { isValidObjectId, toObjectId } from "@/lib/models/common";
-import { updateWorkspaceSchema } from "@/lib/models/workspace";
-import { ACTIVE_WORKSPACE_COOKIE } from "@/lib/workspace";
+import {
+  createWorkspaceSchema,
+  updateWorkspaceSchema,
+} from "@/lib/models/workspace";
+import {
+  ACTIVE_WORKSPACE_COOKIE,
+  MAX_WORKSPACES_PER_USER,
+  countOwnedWorkspaces,
+  createWorkspaceForUser,
+} from "@/lib/workspace";
 import { canManageMembers } from "@/lib/permissions";
 import type { ActionResult } from "./types";
 
@@ -52,6 +60,46 @@ export async function updateWorkspaceAction(
 
   // The timezone changes how *every* date in the app renders, and the name shows
   // in the sidebar — revalidate the whole tree rather than a single route.
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/**
+ * Create a new workspace owned by the caller, capped at
+ * `MAX_WORKSPACES_PER_USER` *owned* workspaces, and switch to it. The count is a
+ * soft limit (no cross-request lock) — fine for a per-user click.
+ */
+export async function createWorkspaceAction(
+  input: unknown,
+): Promise<ActionResult> {
+  const user = await requireUser();
+
+  const parsed = createWorkspaceSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid workspace name",
+    };
+  }
+
+  const owned = await countOwnedWorkspaces(user.id);
+  if (owned >= MAX_WORKSPACES_PER_USER) {
+    return {
+      ok: false,
+      error: `You can create at most ${MAX_WORKSPACES_PER_USER} workspaces`,
+    };
+  }
+
+  const doc = await createWorkspaceForUser(parsed.data.name, user.id);
+
+  // Land on the new workspace immediately.
+  (await cookies()).set(ACTIVE_WORKSPACE_COOKIE, doc._id.toString(), {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: WORKSPACE_COOKIE_MAX_AGE,
+  });
+
   revalidatePath("/", "layout");
   return { ok: true };
 }

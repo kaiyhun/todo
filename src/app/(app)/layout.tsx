@@ -10,7 +10,10 @@
  */
 import { requireContext } from "@/lib/session";
 import { isLocalMode } from "@/lib/auth/local-mode";
-import { getWorkspacesForUser } from "@/lib/workspace";
+import {
+  MAX_WORKSPACES_PER_USER,
+  getWorkspacesForUser,
+} from "@/lib/workspace";
 import { Sidebar } from "@/components/app-shell/sidebar";
 import { TimezoneProvider } from "@/components/providers/timezone-provider";
 
@@ -37,6 +40,10 @@ export default async function AppLayout({
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
 
+  // The cap counts workspaces the user *owns* (create limit; being added is uncapped).
+  const ownedCount = workspaces.filter((w) => w.role === "owner").length;
+  const canCreateWorkspace = !localMode && ownedCount < MAX_WORKSPACES_PER_USER;
+
   return (
     <TimezoneProvider timezone={workspace.timezone}>
       <div className="flex h-dvh w-full overflow-hidden">
@@ -45,6 +52,8 @@ export default async function AppLayout({
           workspaces={workspaces}
           activeWorkspaceId={workspace.id}
           localMode={localMode}
+          canCreateWorkspace={canCreateWorkspace}
+          maxWorkspaces={MAX_WORKSPACES_PER_USER}
         />
         <main className="flex-1 overflow-y-auto">{children}</main>
         {modal}

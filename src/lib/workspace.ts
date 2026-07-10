@@ -10,6 +10,9 @@ import type { WorkspaceDoc } from "@/lib/models/workspace";
 /** Cookie holding the user's currently-selected workspace id. */
 export const ACTIVE_WORKSPACE_COOKIE = "active_workspace";
 
+/** How many workspaces one user may own (create). Being *added* to others is uncapped. */
+export const MAX_WORKSPACES_PER_USER = 3;
+
 /** Every workspace the given user is a member of (any role). */
 export async function getWorkspacesForUser(
   userId: string,
@@ -17,6 +20,13 @@ export async function getWorkspacesForUser(
   return workspacesCollection()
     .find({ "members.userId": toObjectId(userId) })
     .toArray();
+}
+
+/** How many workspaces the given user owns — the value the create limit checks. */
+export async function countOwnedWorkspaces(userId: string): Promise<number> {
+  return workspacesCollection().countDocuments({
+    members: { $elemMatch: { userId: toObjectId(userId), role: "owner" } },
+  });
 }
 
 /** Whether `userId` is the owner of `doc`. */
