@@ -451,8 +451,18 @@ wrong current password rejected with the hash unchanged; correct change stores a
 cost-12 bcrypt that the old password no longer matches). Demo data was re-seeded
 afterwards to undo the test mutations.
 
+**Multi-workspace switching + leave** — done post-deploy (a user can belong to several
+workspaces). The active one is tracked in an `active_workspace` cookie and defaults to a
+workspace the user **owns** (fixing the earlier "first-found" bug where being added to
+someone else's board could silently replace your own). The sidebar `WorkspaceSwitcher`
+switches between them (`switchWorkspaceAction`) and offers **Leave** (`leaveWorkspaceAction`;
+owner must transfer first). Verified in non-local mode with a two-workspace user: owned-
+default, switch, owner-gated leave, and the collapse back to a plain header. Key files:
+`lib/workspace.ts`, `lib/session.ts`, `lib/actions/workspace.ts`,
+`components/app-shell/workspace-switcher.tsx`.
+
 **Still to do (deferred, optional):** avatar upload (needs Blob storage);
-multi-workspace switcher; workspace delete.
+"create workspace" from the switcher; workspace delete.
 
 > Due dates remain date-only, so changing the project timezone re-reads them on the
 > new clock (a far-westward move can show the previous day). That was an explicit

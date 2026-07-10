@@ -93,6 +93,14 @@ Deploys on Vercel Hobby. Full plan: `IMPLEMENTATION_PLAN.md`.
   import Node‑only modules (mongo, bcrypt) into `auth.config.ts`/`proxy.ts`.
 - **Current user/workspace**: use `getCurrentUser` / `requireContext` from
   `src/lib/session.ts` — they transparently honor `LOCAL_MODE`.
+- **Active workspace** (a user may belong to several): `getCurrentContext` picks the
+  one named by the `active_workspace` **cookie** (while they're still a member), else
+  one they **own** (never silently land someone on a board they were merely added to),
+  else the first. `switchWorkspaceAction` sets the cookie; the sidebar
+  `WorkspaceSwitcher` shows it only when there's >1 workspace (so LOCAL_MODE / single-
+  workspace users see a plain header). **Leaving** is self-service via
+  `leaveWorkspaceAction` — the owner can't leave (transfer first), and leaving
+  unassigns you from that workspace's tasks/epics and clears the cookie.
 - **Profile is self-service** (`lib/actions/profile.ts`): a user edits their *own*
   name/password with no role check — identity comes from the session, never client
   input. Two traps: (1) outside LOCAL_MODE the display name is read from the **JWT**,

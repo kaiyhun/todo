@@ -6,11 +6,17 @@
  * and return the singleton local identity, transparently to callers.
  */
 import "server-only";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { isLocalMode } from "@/lib/auth/local-mode";
 import { ensureLocalUser, ensureLocalWorkspace } from "@/lib/auth/local-context";
-import { getWorkspaceForUser, createWorkspaceForUser } from "@/lib/workspace";
+import {
+  ACTIVE_WORKSPACE_COOKIE,
+  createWorkspaceForUser,
+  getWorkspacesForUser,
+  isWorkspaceOwner,
+} from "@/lib/workspace";
 import { findWorkspaceRole } from "@/lib/permissions";
 import { serializeUser, type User } from "@/lib/models/user";
 import {
@@ -74,13 +80,25 @@ export async function getCurrentContext(): Promise<AppContext | null> {
   const user = await getCurrentUser();
   if (!user) return null;
 
+  let workspaceDocs = await getWorkspacesForUser(user.id);
+  if (workspaceDocs.length === 0) {
+    workspaceDocs = [
+      await createWorkspaceForUser(`${user.name}'s Workspace`, user.id),
+    ];
+  }
+
+  // Which of the user's workspaces is active: the one named by the cookie (while
+  // they still belong to it), else one they *own* — so being added to someone
+  // else's board never silently replaces their own — else the first.
+  const activeId = (await cookies()).get(ACTIVE_WORKSPACE_COOKIE)?.value;
   const workspaceDoc =
-    (await getWorkspaceForUser(user.id)) ??
-    (await createWorkspaceForUser(`${user.name}'s Workspace`, user.id));
+    workspaceDocs.find((w) => w._id.toString() === activeId) ??
+    workspaceDocs.find((w) => isWorkspaceOwner(w, user.id)) ??
+    workspaceDocs[0];
 
   const workspace = serializeWorkspace(workspaceDoc);
-  // `getWorkspaceForUser` matched on membership, so a role is expected; fall back
-  // to the least privileged one rather than throwing.
+  // Membership matched above, so a role is expected; fall back to the least
+  // privileged one rather than throwing.
   const role = findWorkspaceRole(workspace, user.id) ?? "member";
 
   return { user, workspace, role };

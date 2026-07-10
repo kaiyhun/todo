@@ -7,11 +7,23 @@ import { slugify, toObjectId } from "@/lib/models/common";
 import { DEFAULT_TIMEZONE } from "@/lib/timezone";
 import type { WorkspaceDoc } from "@/lib/models/workspace";
 
-/** The first workspace the given user is a member of, or `null`. */
-export async function getWorkspaceForUser(
+/** Cookie holding the user's currently-selected workspace id. */
+export const ACTIVE_WORKSPACE_COOKIE = "active_workspace";
+
+/** Every workspace the given user is a member of (any role). */
+export async function getWorkspacesForUser(
   userId: string,
-): Promise<WorkspaceDoc | null> {
-  return workspacesCollection().findOne({ "members.userId": toObjectId(userId) });
+): Promise<WorkspaceDoc[]> {
+  return workspacesCollection()
+    .find({ "members.userId": toObjectId(userId) })
+    .toArray();
+}
+
+/** Whether `userId` is the owner of `doc`. */
+export function isWorkspaceOwner(doc: WorkspaceDoc, userId: string): boolean {
+  return doc.members.some(
+    (member) => member.userId.toString() === userId && member.role === "owner",
+  );
 }
 
 /**
