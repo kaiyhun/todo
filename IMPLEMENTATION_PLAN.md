@@ -461,12 +461,31 @@ multi-workspace switcher; workspace delete.
 
 ---
 
-### ⬜ M6 — Offline / local‑mode polish
-- Document + smooth the `LOCAL_MODE=true` path; optional local MongoDB via Docker
-  compose for a fully offline setup.
-- Optional PWA (installable, offline shell caching).
+### ✅ M6 — Offline / local‑mode polish
+In-scope DX/UX polish done; heavier items deliberately deferred.
 
-**Acceptance:** `LOCAL_MODE=true npm run dev` with a local Mongo → full app, no login.
+- **Done:** README (prerequisites incl. Node 20.9+, corrected demo roles — the workspace
+  **owner** is the local user, Alice is admin; `AUTH_SECRET` not needed in local mode) and
+  `.env.example` refreshed. **LOCAL_MODE edge-case sweep** confirmed the path was already
+  solid from M0–M5: `/`, `/login`, `/register` redirect to `/dashboard` in local mode; the
+  members page carries a LOCAL_MODE note; sign-out is hidden; the M5 password form is gated;
+  every list (board, tasks, wiki, dashboard, assignee picker) has an empty state.
+- **Skipped by choice:** PWA (little value while data needs the network — revisit with SQLite).
+- **Backlogged:** local Mongo via Docker, and the SQLite private backend (below).
+
+**Acceptance (met):** `LOCAL_MODE=true npm run dev` → full app, no login; setup docs accurate.
+
+> **📋 Backlog — SQLite "private" backend (designed, not scheduled).** A truly offline,
+> single-user *private* mode backed by a local **SQLite file** (no Atlas, no separate DB
+> process), selected by a `STORAGE_BACKEND=mongo|sqlite` env flag that is independent of
+> `LOCAL_MODE` and of `npm run dev` (so Mongo stays the default and keeps working as-is).
+> Approach: a storage/repository seam with two implementations (`MongoStorage` today's
+> queries; `SqliteStorage`) behind one `getStorage()` — the UI/DTO layer is untouched
+> because ids stay ObjectId-hex and repos still return `*Doc`. Shelved 2026-07-10 as
+> potential scope creep. **Full design of record:**
+> `~/.claude/plans/partitioned-petting-steele.md` (context, phases 1–5, file list, risks,
+> verification). Note: SQLite can't run on Vercel (ephemeral FS) — that's *why* private =
+> local-only and shared/cloud stays Mongo. Prereq: update Node to latest LTS for `node:sqlite`.
 
 ---
 

@@ -9,6 +9,9 @@ data model, and milestone roadmap.
 
 ## Quick start
 
+**Prerequisites:** Node.js **20.9+** (Next.js 16's minimum; Node 22 LTS recommended)
+and a MongoDB database — MongoDB Atlas (free M0 tier) or a local install.
+
 ```bash
 # 1. Install dependencies
 npm install
@@ -28,13 +31,21 @@ npm run dev            # http://localhost:3000
 ```
 
 After seeding, log in with any demo account (password `password123`):
-`alice@demo.test` (owner), `bob@demo.test`, `carol@demo.test`, `dave@demo.test`.
+`alice@demo.test` (admin), `bob@demo.test`, `carol@demo.test`, `dave@demo.test`
+(members). The workspace **owner** is the built‑in local user — nobody logs in as
+them; you reach it by running in local mode (below). Signing in as Alice exercises
+the admin path (can manage people, can't transfer ownership).
 
 ### Run offline / without login
 
 Set `LOCAL_MODE=true` in `.env.local`. Authentication is disabled and the app
-runs as a single local user — ideal for self‑hosting or trying it out locally.
-Point `MONGODB_URI` at a local MongoDB (or your Atlas cluster).
+runs as a single local user with owner permissions — ideal for self‑hosting or
+trying it out locally. `AUTH_SECRET` isn't needed in this mode. Point
+`MONGODB_URI` at a local MongoDB (or your Atlas cluster).
+
+> Local mode still uses MongoDB (it only turns off login). A fully offline,
+> single‑user **SQLite** backend is designed but not yet built — see the M6 backlog
+> note in [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md).
 
 ## Scripts
 
