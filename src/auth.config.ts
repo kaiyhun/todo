@@ -55,11 +55,21 @@ export const authConfig = {
       return true;
     },
 
-    /** Copy our custom fields onto the JWT the first time (at sign-in). */
-    jwt({ token, user }) {
+    /**
+     * Shape the JWT. At sign-in we copy our custom fields off the authorized
+     * user. On an `update` (triggered by `unstable_update` after a profile edit)
+     * we merge the new display name into the token, so the signed-in user's name
+     * refreshes everywhere without a re-login. `@auth/core` rebuilds the session's
+     * `user.name` from `token.name`, so this assignment is what actually sticks.
+     */
+    jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id as string;
         token.role = (user as { role?: UserRole }).role ?? "member";
+      }
+      if (trigger === "update" && session && typeof session === "object") {
+        const next = (session as { user?: { name?: unknown } }).user;
+        if (typeof next?.name === "string") token.name = next.name;
       }
       return token;
     },

@@ -93,6 +93,14 @@ Deploys on Vercel Hobby. Full plan: `IMPLEMENTATION_PLAN.md`.
   import Node‑only modules (mongo, bcrypt) into `auth.config.ts`/`proxy.ts`.
 - **Current user/workspace**: use `getCurrentUser` / `requireContext` from
   `src/lib/session.ts` — they transparently honor `LOCAL_MODE`.
+- **Profile is self-service** (`lib/actions/profile.ts`): a user edits their *own*
+  name/password with no role check — identity comes from the session, never client
+  input. Two traps: (1) outside LOCAL_MODE the display name is read from the **JWT**,
+  not the DB, so `updateProfileAction` must `unstable_update({ user: { name } })` and
+  `auth.config.ts`'s `jwt` callback merges it on `trigger === "update"`, else the
+  sidebar shows a stale name until re-login. In LOCAL_MODE the name comes straight
+  from the DB — no token to refresh. (2) **Change-password is disabled in LOCAL_MODE**
+  (the local user has no password); the action rejects it and the form hides.
 - **Next.js 16**: middleware is `proxy.ts`; `cookies`/`headers`/`params`/
   `searchParams` are async — always `await`.
 - **UI**: add shadcn components via the shadcn MCP / CLI; icons from `lucide-react`.

@@ -71,3 +71,30 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
+
+/**
+ * Editable profile fields. Email is the login identity and stays read-only; the
+ * avatar is initials-derived, so `name` is the only thing to change here.
+ */
+export const updateProfileSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(80),
+});
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+/**
+ * Password change. The confirmation field is a client-side guard; the server
+ * only needs the current password (to authorise) and the new one (to store).
+ */
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password"),
+    newPassword: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .max(200, "Password is too long"),
+  })
+  .refine((v) => v.newPassword !== v.currentPassword, {
+    message: "New password must be different from the current one",
+    path: ["newPassword"],
+  });
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

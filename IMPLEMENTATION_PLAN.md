@@ -388,8 +388,8 @@ and underscore emphasis requires a whitespace boundary, as markdown itself does.
 
 ---
 
-### 🚧 M5 — Settings & profile
-Workspace settings **done**; profile still to come.
+### ✅ M5 — Settings & profile
+Workspace settings **and** profile **done**.
 
 - **Project timezone** (`workspace.timezone`, IANA). The team's shared clock: every
   instant is stored in UTC and rendered through this zone. Owner + admins can change
@@ -410,9 +410,22 @@ Workspace settings **done**; profile still to come.
   This is also what removed the latent hydration mismatch — an ambient
   `toLocaleDateString(undefined, …)` renders differently on server and browser.
 
+- **Profile** (self-service; no role check — a user always edits their *own* name
+  and password). Avatar is **initials-only** (no upload infra). Two gotchas:
+  - In non-local mode the display name lives in the **JWT**, not read from the DB
+    per request — so `updateProfileAction` calls `unstable_update({ user: { name } })`
+    and the `jwt` callback merges it on `trigger === "update"`, or the sidebar shows a
+    stale name until the next login. In LOCAL_MODE the name is read straight from the
+    DB, so no token refresh is needed (and none is attempted).
+  - **Change password is unavailable in LOCAL_MODE** — the singleton local user has no
+    password and auth is off. The action rejects it server-side; the form is replaced
+    by a note client-side. Elsewhere it re-reads the hash, verifies the current
+    password, then stores a fresh bcrypt (cost 12).
+
 **Key files:** `lib/timezone.ts`, `lib/time-server.ts`, `lib/format.ts`,
-`lib/actions/workspace.ts`, `components/providers/timezone-provider.tsx`,
-`components/settings/*`, `app/(app)/settings/page.tsx`.
+`lib/actions/workspace.ts`, `lib/actions/profile.ts`, `auth.config.ts` (jwt update),
+`components/providers/timezone-provider.tsx`, `components/settings/*`,
+`app/(app)/settings/page.tsx`.
 
 **Acceptance (met):** typecheck + lint clean, 0 hydration errors, 0 console errors.
 Verified with the **dev server running as `TZ=UTC` to simulate Vercel**, project tz
@@ -431,8 +444,15 @@ Temporal was validated against the nasty zones before building on it: DST
 spring-forward and fall-back, `Asia/Kolkata`'s half-hour offset, and
 `America/Santiago` on a day when **midnight does not exist**.
 
-**Still to do:** profile (name, avatar, change password); optional multi-workspace
-switcher; workspace delete.
+Profile was verified in a real browser in **both** modes: LOCAL_MODE (name edit →
+DB + sidebar; password form correctly replaced by a note) and non-local as a seeded
+member (name edit re-signs the JWT — sidebar updates and survives a hard reload;
+wrong current password rejected with the hash unchanged; correct change stores a
+cost-12 bcrypt that the old password no longer matches). Demo data was re-seeded
+afterwards to undo the test mutations.
+
+**Still to do (deferred, optional):** avatar upload (needs Blob storage);
+multi-workspace switcher; workspace delete.
 
 > Due dates remain date-only, so changing the project timezone re-reads them on the
 > new clock (a far-westward move can show the previous day). That was an explicit
