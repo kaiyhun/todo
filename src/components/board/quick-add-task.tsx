@@ -46,7 +46,9 @@ export function QuickAddTask({ epicId }: { epicId: string }) {
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 w-full justify-start gap-1 text-xs text-muted-foreground"
+        // Grow to fill the rest of the (row-height) New cell so the affordance
+        // spans the row instead of floating short at the top. Label stays top-left.
+        className="min-h-7 w-full flex-1 items-start justify-start gap-1 pt-1.5 text-xs text-muted-foreground"
         onClick={() => {
           setOpen(true);
           // Focus once the input has mounted.

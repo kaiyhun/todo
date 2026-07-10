@@ -40,7 +40,9 @@ export function BoardCell({
       ref={setNodeRef}
       data-cell={toCellId(epicId, status)}
       className={cn(
-        "flex min-h-28 flex-col gap-2 rounded-md border border-dashed border-transparent bg-muted/30 p-2 transition-colors",
+        // `h-full` makes the cell fill its (row-height) grid track, so every
+        // column in a row is the same height even when one column has more cards.
+        "flex h-full min-h-28 flex-col gap-2 rounded-md border border-dashed border-transparent bg-muted/30 p-2 transition-colors",
         isOver && "border-primary/50 bg-accent",
       )}
     >
