@@ -1,7 +1,24 @@
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import { cn } from "@/lib/utils";
+
+const markdownComponents: Components = {
+  // GFM task-list items (`- [x]`) render as disabled, unlabeled checkboxes.
+  // Give them an accessible name so screen readers announce their state.
+  input({ node, ...props }) {
+    void node;
+    if (props.type === "checkbox") {
+      return (
+        <input
+          {...props}
+          aria-label={props.checked ? "Completed task" : "Incomplete task"}
+        />
+      );
+    }
+    return <input {...props} />;
+  },
+};
 
 /**
  * Renders Markdown.
@@ -29,6 +46,7 @@ export function Markdown({
         remarkPlugins={[remarkGfm]}
         // `ignoreMissing` keeps an unknown ```lang from throwing at render time.
         rehypePlugins={[[rehypeHighlight, { ignoreMissing: true, detect: true }]]}
+        components={markdownComponents}
       >
         {content}
       </ReactMarkdown>

@@ -489,10 +489,21 @@ In-scope DX/UX polish done; heavier items deliberately deferred.
 
 ---
 
-### ⬜ M7 — Hardening & deploy
-- Auth rate limiting; error boundaries + `loading.tsx`; a11y pass; Lighthouse.
-- Playwright E2E (login → create task → move on board) via the configured MCP.
-- Deploy to Vercel (steps below); confirm prod build (Turbopack) is green.
+### 🚧 M7 — Hardening & deploy
+- **Done:** error boundaries + loading states — `global-error.tsx`, root + `(app)/not-found.tsx`
+  (in-app 404 keeps the sidebar), and `loading.tsx` skeletons across all authenticated routes.
+- **In progress:** a11y pass + Lighthouse.
+- **Then:** Playwright E2E (login → create task → move on board); deploy to Vercel (steps below);
+  confirm the prod **webpack** build is green (Turbopack still disabled — see README known issue).
+
+> **📋 Backlog — auth rate limiting (deferred 2026-07-10).** Skipped for now as
+> not-worth-the-complexity for a ~4-person internal tool; it's a no-op in LOCAL_MODE (no login)
+> and only matters once deployed with auth on. Implementation is a small wrapper around the
+> login attempt (throttle by IP+email, e.g. 5 fails / 15 min → 429). **Store choice when picked
+> up:** in-memory (zero setup; fully effective self-hosted/single-instance, per-instance/weaker
+> on Vercel serverless) **or** Upstash Redis (`@upstash/ratelimit`, free tier, distributed/correct
+> on serverless, needs an account + 2 env vars). The store sits behind one wrapper, so either is
+> a drop-in.
 
 **Acceptance:** deployed on Vercel Hobby; E2E green; no console/type errors.
 

@@ -123,7 +123,11 @@ export function SortableTaskCard({
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onKeyDown={handleKeyDown}
-      aria-label={`${task.title}. Press Enter to open, Space to move.`}
+      // No custom `aria-label`: the card's accessible name is derived from its
+      // visible content (title, priority, assignees), which is what keeps it
+      // compliant with WCAG "Label in Name". dnd-kit announces the move
+      // instructions; `aria-keyshortcuts` advertises that Enter opens the task.
+      aria-keyshortcuts="Enter"
     >
       <TaskCardView task={task} members={members} />
     </div>

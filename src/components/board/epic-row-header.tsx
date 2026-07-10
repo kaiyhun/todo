@@ -117,7 +117,15 @@ export function EpicRowHeader({
       </div>
 
       <div className="space-y-1">
-        <Progress value={progress.percentComplete} className="h-1.5" />
+        <Progress
+          value={progress.percentComplete}
+          className="h-1.5"
+          aria-label={
+            progress.total === 0
+              ? "No tasks yet"
+              : `${progress.closed} of ${progress.total} tasks closed`
+          }
+        />
         <p className="text-[11px] text-muted-foreground">
           {progress.total === 0
             ? "No tasks yet"

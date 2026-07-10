@@ -57,6 +57,7 @@ trying it out locally. `AUTH_SECRET` isn't needed in this mode. Point
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
 | `npm run seed` | Populate the database with demo data |
+| `npm run test:e2e` | Playwright smoke tests (runs in LOCAL_MODE; reuses a running dev server, else starts one) |
 | `npm run dev:turbo` / `build:turbo` | Turbopack variants (see known issue below) |
 
 ### Known issue: Turbopack + Tailwind v4

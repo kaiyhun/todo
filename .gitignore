@@ -27,6 +27,12 @@
 # tooling scratch output (Playwright MCP snapshots / console logs)
 /.playwright-mcp/
 
+# playwright e2e artifacts
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
