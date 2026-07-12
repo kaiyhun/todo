@@ -72,60 +72,65 @@ export function WikiEditor({
 
   return (
     <form onSubmit={handleSave} className="flex h-full flex-col">
-      <header className="flex flex-wrap items-end gap-3 border-b p-4">
-        <div className="min-w-[240px] flex-1 space-y-1.5">
-          <Label htmlFor="editor-title">Title</Label>
-          <Input
-            id="editor-title"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            required
-          />
-          <p className="text-xs text-muted-foreground">
-            {titleChanged ? (
-              <>
-                URL will change from <code>/wiki/{page.slug}</code> — the old link
-                keeps working.
-              </>
-            ) : (
-              <>
-                URL: <code>/wiki/{page.slug}</code>
-              </>
-            )}
-          </p>
+      <header className="space-y-1.5 border-b p-4">
+        {/* Title, parent and actions share one bottom-aligned row; the URL hint
+            sits below so it can't push the other controls out of alignment. */}
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[240px] flex-1 space-y-1.5">
+            <Label htmlFor="editor-title">Title</Label>
+            <Input
+              id="editor-title"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              required
+            />
+          </div>
+
+          <div className="w-56 space-y-1.5">
+            <Label htmlFor="editor-parent">Parent page</Label>
+            <Select value={parentId} onValueChange={setParentId}>
+              <SelectTrigger id="editor-parent" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ROOT}>None (top level)</SelectItem>
+                {options.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {" ".repeat(option.depth * 2)}
+                    {option.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push(`/wiki/${page.slug}`)}
+              disabled={pending}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={pending || !title.trim()}>
+              {pending ? "Saving…" : "Save"}
+            </Button>
+          </div>
         </div>
 
-        <div className="w-56 space-y-1.5">
-          <Label htmlFor="editor-parent">Parent page</Label>
-          <Select value={parentId} onValueChange={setParentId}>
-            <SelectTrigger id="editor-parent" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ROOT}>None (top level)</SelectItem>
-              {options.map((option) => (
-                <SelectItem key={option.id} value={option.id}>
-                  {" ".repeat(option.depth * 2)}
-                  {option.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push(`/wiki/${page.slug}`)}
-            disabled={pending}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" disabled={pending || !title.trim()}>
-            {pending ? "Saving…" : "Save"}
-          </Button>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          {titleChanged ? (
+            <>
+              URL will change from <code>/wiki/{page.slug}</code> — the old link
+              keeps working.
+            </>
+          ) : (
+            <>
+              URL: <code>/wiki/{page.slug}</code>
+            </>
+          )}
+        </p>
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 divide-x md:grid-cols-2">
