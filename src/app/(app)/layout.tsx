@@ -15,6 +15,7 @@ import {
   getWorkspacesForUser,
 } from "@/lib/workspace";
 import { Sidebar } from "@/components/app-shell/sidebar";
+import { MobileNav } from "@/components/app-shell/mobile-nav";
 import { TimezoneProvider } from "@/components/providers/timezone-provider";
 
 export default async function AppLayout({
@@ -44,18 +45,23 @@ export default async function AppLayout({
   const ownedCount = workspaces.filter((w) => w.role === "owner").length;
   const canCreateWorkspace = !localMode && ownedCount < MAX_WORKSPACES_PER_USER;
 
+  const shellProps = {
+    user,
+    workspaces,
+    activeWorkspaceId: workspace.id,
+    localMode,
+    canCreateWorkspace,
+    maxWorkspaces: MAX_WORKSPACES_PER_USER,
+  };
+
   return (
     <TimezoneProvider timezone={workspace.timezone}>
       <div className="flex h-dvh w-full overflow-hidden">
-        <Sidebar
-          user={user}
-          workspaces={workspaces}
-          activeWorkspaceId={workspace.id}
-          localMode={localMode}
-          canCreateWorkspace={canCreateWorkspace}
-          maxWorkspaces={MAX_WORKSPACES_PER_USER}
-        />
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <Sidebar {...shellProps} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <MobileNav {...shellProps} />
+          <main className="flex-1 overflow-y-auto">{children}</main>
+        </div>
         {modal}
       </div>
     </TimezoneProvider>

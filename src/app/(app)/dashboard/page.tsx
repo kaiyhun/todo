@@ -62,7 +62,7 @@ export default async function DashboardPage() {
   const recent = recentDocs.map(serializeTask);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
+    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">
           Welcome back, {user.name.split(" ")[0]}

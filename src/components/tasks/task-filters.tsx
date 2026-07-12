@@ -78,14 +78,14 @@ export function TaskFilters({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative">
+      <div className="relative w-full sm:w-auto">
         <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search tasks…"
           aria-label="Search tasks"
-          className="w-56 pl-8"
+          className="w-full pl-8 sm:w-56"
         />
       </div>
 

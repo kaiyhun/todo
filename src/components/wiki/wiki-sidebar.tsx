@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Search, X } from "lucide-react";
+import { PanelLeft, Search, X } from "lucide-react";
 import { searchWikiPagesAction } from "@/lib/actions/wiki";
 import {
   MIN_QUERY_LENGTH,
@@ -10,6 +10,7 @@ import {
 } from "@/lib/wiki-search";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { PageTree } from "./page-tree";
 import { NewPageDialog } from "./new-page-dialog";
 import type { WikiPageOption, WikiTreeNode } from "@/lib/wiki-types";
@@ -36,6 +37,8 @@ export function WikiSidebar({
   /** `null` means "not searching" — render the whole tree. */
   const [hits, setHits] = useState<WikiSearchHit[] | null>(null);
   const [pending, startTransition] = useTransition();
+  /** Small-screen "Pages" drawer. */
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestQueryRef = useRef("");
@@ -80,8 +83,9 @@ export function WikiSidebar({
 
   const searching = query.trim().length >= MIN_QUERY_LENGTH;
 
-  return (
-    <aside className="flex w-64 shrink-0 flex-col border-r">
+  // Shared between the desktop rail and the mobile drawer.
+  const content = (
+    <>
       <div className="flex h-12 items-center justify-between border-b px-3">
         <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           Pages
@@ -140,6 +144,45 @@ export function WikiSidebar({
           <p className="px-2 py-1.5 text-xs text-muted-foreground">No pages yet.</p>
         )}
       </nav>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop rail */}
+      <aside className="hidden w-64 shrink-0 flex-col border-r md:flex">
+        {content}
+      </aside>
+
+      {/* Mobile: a "Pages" button opening the tree as a left drawer */}
+      <div className="border-b p-2 md:hidden">
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setMobileOpen(true)}
+          >
+            <PanelLeft className="size-4" />
+            Pages
+          </Button>
+          <SheetContent
+            side="left"
+            showCloseButton={false}
+            className="bg-background text-foreground"
+            // Close the drawer when a page link is tapped (delegated, so it also
+            // covers the recursively-rendered tree without threading a callback).
+            onClick={(event) => {
+              if ((event.target as HTMLElement).closest("a")) {
+                setMobileOpen(false);
+              }
+            }}
+          >
+            <SheetTitle className="sr-only">Wiki pages</SheetTitle>
+            {content}
+          </SheetContent>
+        </Sheet>
+      </div>
+    </>
   );
 }

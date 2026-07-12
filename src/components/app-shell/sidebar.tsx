@@ -12,29 +12,33 @@ import {
 } from "./workspace-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-/**
- * Left navigation rail: workspace switcher, primary nav (with active highlight),
- * and a footer with the user menu + theme toggle.
- */
-export function Sidebar({
-  user,
-  workspaces,
-  activeWorkspaceId,
-  localMode,
-  canCreateWorkspace,
-  maxWorkspaces,
-}: {
+export type SidebarProps = {
   user: User;
   workspaces: WorkspaceOption[];
   activeWorkspaceId: string;
   localMode: boolean;
   canCreateWorkspace: boolean;
   maxWorkspaces: number;
-}) {
+};
+
+/**
+ * The sidebar's content — workspace switcher, primary nav, footer. Shared by the
+ * desktop rail and the mobile drawer. `onNavigate` lets the drawer close itself
+ * when a link is tapped.
+ */
+export function SidebarInner({
+  user,
+  workspaces,
+  activeWorkspaceId,
+  localMode,
+  canCreateWorkspace,
+  maxWorkspaces,
+  onNavigate,
+}: SidebarProps & { onNavigate?: () => void }) {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
+    <>
       <WorkspaceSwitcher
         workspaces={workspaces}
         activeId={activeWorkspaceId}
@@ -43,7 +47,6 @@ export function Sidebar({
         maxWorkspaces={maxWorkspaces}
       />
 
-      {/* Primary navigation */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
         {NAV_ITEMS.map((item) => {
           const active =
@@ -53,6 +56,7 @@ export function Sidebar({
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               aria-current={active ? "page" : undefined}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
@@ -68,11 +72,22 @@ export function Sidebar({
         })}
       </nav>
 
-      {/* Footer: user menu + theme toggle */}
       <div className="flex items-center gap-1 border-t p-2">
         <UserMenu user={user} canSignOut={!localMode} />
         <ThemeToggle />
       </div>
+    </>
+  );
+}
+
+/**
+ * Desktop navigation rail. Hidden below `md`, where the mobile top bar's drawer
+ * takes over.
+ */
+export function Sidebar(props: SidebarProps) {
+  return (
+    <aside className="hidden h-full w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
+      <SidebarInner {...props} />
     </aside>
   );
 }

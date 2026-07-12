@@ -30,7 +30,7 @@ export default async function WikiPageRoute({
   const childCount = await getWikiChildCount(workspace.id, page.id);
 
   return (
-    <article className="mx-auto max-w-3xl space-y-4 p-6">
+    <article className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6">
       {breadcrumbs.length > 0 ? (
         <nav
           aria-label="Breadcrumb"

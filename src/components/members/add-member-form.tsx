@@ -37,26 +37,34 @@ export function AddMemberForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-wrap items-end gap-2 rounded-lg border p-4"
+      className="space-y-2 rounded-lg border p-4"
     >
-      <div className="flex-1 space-y-2 min-w-[240px]">
-        <Label htmlFor="member-email">Add a teammate</Label>
-        <Input
-          id="member-email"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="teammate@example.com"
-          disabled={pending}
-        />
-        <p className="text-xs text-muted-foreground">
-          They need an account first — ask them to sign up, then add them here.
-        </p>
+      {/* Input and button share a row and bottom-align to each other; the helper
+          text sits below so it can't push the button out of alignment. */}
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-[220px] flex-1 space-y-2">
+          <Label htmlFor="member-email">Add a teammate</Label>
+          <Input
+            id="member-email"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="teammate@example.com"
+            disabled={pending}
+          />
+        </div>
+        <Button
+          type="submit"
+          disabled={pending || !email.trim()}
+          className="w-full gap-1.5 sm:w-auto"
+        >
+          <UserPlus className="size-4" />
+          {pending ? "Adding…" : "Add member"}
+        </Button>
       </div>
-      <Button type="submit" disabled={pending || !email.trim()} className="gap-1.5">
-        <UserPlus className="size-4" />
-        {pending ? "Adding…" : "Add member"}
-      </Button>
+      <p className="text-xs text-muted-foreground">
+        They need an account first — ask them to sign up, then add them here.
+      </p>
     </form>
   );
 }

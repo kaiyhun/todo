@@ -54,7 +54,7 @@ export default async function TasksPage({
   );
 
   return (
-    <div className="flex h-full flex-col gap-4 p-6">
+    <div className="flex h-full flex-col gap-4 p-4 sm:p-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
         <p className="text-sm text-muted-foreground">

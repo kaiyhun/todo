@@ -32,7 +32,7 @@ export default async function BoardPage({
   const sprintIdForNewEpic = isBacklog ? null : board.view;
 
   return (
-    <div className="flex h-full flex-col gap-4 p-6">
+    <div className="flex h-full flex-col gap-4 p-4 sm:p-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -48,7 +48,7 @@ export default async function BoardPage({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <MineFilterToggle active={mineOnly} />
           <SprintSwitcher
             sprints={board.sprints}

@@ -116,6 +116,13 @@ Deploys on Vercel Hobby. Full plan: `IMPLEMENTATION_PLAN.md`.
 - **Next.js 16**: middleware is `proxy.ts`; `cookies`/`headers`/`params`/
   `searchParams` are async — always `await`.
 - **UI**: add shadcn components via the shadcn MCP / CLI; icons from `lucide-react`.
+- **Responsive shell**: the sidebar is a fixed rail at `md+` and a `Sheet` drawer below
+  `md` (hamburger in `mobile-nav.tsx`); the wiki page tree does the same via a "Pages"
+  drawer. Both render one shared content block in a `hidden md:flex` rail **and** a
+  mobile `Sheet` — follow that pattern for any new full-height side panel. Nav/tree
+  links close the drawer (an `onNavigate` prop, or delegated `closest("a")` for the
+  recursive wiki tree). Page containers use `p-4 sm:p-6`; wide content (board grid,
+  tables) scrolls inside its own `overflow-x-auto`, never the page body.
 
 ## Commands
 `npm run dev` · `npm run build` · `npm run typecheck` · `npm run seed`
