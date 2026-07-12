@@ -1,10 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/navigation";
 import type { User } from "@/lib/models/user";
+import { Button } from "@/components/ui/button";
+import { SIDEBAR_COLLAPSED_COOKIE } from "@/lib/ui-prefs";
 import { UserMenu } from "./user-menu";
 import {
   WorkspaceSwitcher,
@@ -34,7 +38,8 @@ export function SidebarInner({
   canCreateWorkspace,
   maxWorkspaces,
   onNavigate,
-}: SidebarProps & { onNavigate?: () => void }) {
+  onCollapse,
+}: SidebarProps & { onNavigate?: () => void; onCollapse?: () => void }) {
   const pathname = usePathname();
 
   return (
@@ -75,19 +80,56 @@ export function SidebarInner({
       <div className="flex items-center gap-1 border-t p-2">
         <UserMenu user={user} canSignOut={!localMode} />
         <ThemeToggle />
+        {onCollapse ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Collapse sidebar"
+            onClick={onCollapse}
+            className="text-muted-foreground"
+          >
+            <PanelLeftClose className="size-4" />
+          </Button>
+        ) : null}
       </div>
     </>
   );
 }
 
 /**
- * Desktop navigation rail. Hidden below `md`, where the mobile top bar's drawer
- * takes over.
+ * Desktop navigation rail. Hidden below `md` (the mobile top bar's drawer takes
+ * over there); on `md+` it can also be collapsed to reclaim width, remembered in
+ * a cookie so it survives reloads. When collapsed, a small edge tab brings it back.
  */
-export function Sidebar(props: SidebarProps) {
+export function Sidebar({
+  defaultCollapsed,
+  ...props
+}: SidebarProps & { defaultCollapsed: boolean }) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
+  function update(next: boolean) {
+    setCollapsed(next);
+    // A plain cookie (no server action needed) — the layout reads it for the
+    // initial render, so there's no expand/collapse flash on reload.
+    document.cookie = `${SIDEBAR_COLLAPSED_COOKIE}=${next ? "1" : "0"}; path=/; max-age=31536000; samesite=lax`;
+  }
+
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        aria-label="Show sidebar"
+        onClick={() => update(false)}
+        className="fixed top-1/2 left-0 z-30 hidden -translate-y-1/2 items-center rounded-r-lg border border-l-0 bg-sidebar p-1.5 text-muted-foreground shadow-sm transition-colors hover:text-foreground md:flex"
+      >
+        <PanelLeftOpen className="size-4" />
+      </button>
+    );
+  }
+
   return (
     <aside className="hidden h-full w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
-      <SidebarInner {...props} />
+      <SidebarInner {...props} onCollapse={() => update(true)} />
     </aside>
   );
 }

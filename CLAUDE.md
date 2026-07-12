@@ -123,6 +123,12 @@ Deploys on Vercel Hobby. Full plan: `IMPLEMENTATION_PLAN.md`.
   links close the drawer (an `onNavigate` prop, or delegated `closest("a")` for the
   recursive wiki tree). Page containers use `p-4 sm:p-6`; wide content (board grid,
   tables) scrolls inside its own `overflow-x-auto`, never the page body.
+  - The `md+` rail is **collapsible** (footer button → hidden + a left edge tab to
+    restore). The choice lives in a `sidebar_collapsed` cookie **read server-side in the
+    layout** so the initial render matches (no flash); the client toggles it via
+    `document.cookie`. The cookie name is in `lib/ui-prefs.ts`, a plain module — **not**
+    the `"use client"` sidebar: a Server Component importing a value from a client module
+    gets a client *reference*, not the string, so `cookies().get(name)` silently misses.
 
 ## Commands
 `npm run dev` · `npm run build` · `npm run typecheck` · `npm run seed`
