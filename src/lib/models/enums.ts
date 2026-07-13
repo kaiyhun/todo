@@ -28,3 +28,13 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
   high: "High",
   urgent: "Urgent",
 };
+
+/** A sprint's lifecycle. A workspace has at most one `active` sprint. */
+export const SPRINT_STATUSES = ["planned", "active", "completed"] as const;
+export type SprintStatus = (typeof SPRINT_STATUSES)[number];
+
+export const SPRINT_STATUS_LABELS: Record<SprintStatus, string> = {
+  planned: "Planned",
+  active: "Active",
+  completed: "Completed",
+};

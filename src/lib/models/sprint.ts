@@ -8,9 +8,11 @@
 import { z } from "zod";
 import type { ObjectId } from "mongodb";
 import { serializeDate, type BaseDoc } from "./common";
+import { SPRINT_STATUSES, type SprintStatus } from "./enums";
 
-export const SPRINT_STATUSES = ["planned", "active", "completed"] as const;
-export type SprintStatus = (typeof SPRINT_STATUSES)[number];
+// Re-exported for server-side callers; Client Components must import these from
+// `models/enums` directly (this file pulls in the Mongo driver via `common`).
+export { SPRINT_STATUSES, type SprintStatus };
 
 /** A sprint as stored in the `sprints` collection. */
 export interface SprintDoc extends BaseDoc {
@@ -45,17 +47,28 @@ export function serializeSprint(doc: SprintDoc): Sprint {
   };
 }
 
-/** Accept a `datetime-local`/ISO string or nothing, and coerce to a Date. */
-const optionalDate = z
-  .string()
-  .optional()
-  .transform((v) => (v ? new Date(v) : null));
+// Raw `YYYY-MM-DD` (or empty) — the action converts it through the workspace
+// timezone. Never coerce with `new Date()` here: `new Date("2026-07-20")` is UTC
+// midnight, which is a day off once rendered in a non-UTC project zone.
+const dateInput = z.string().trim().optional();
 
 export const createSprintSchema = z.object({
   name: z.string().trim().min(1, "Sprint name is required").max(120),
   goal: z.string().trim().max(500).optional(),
   status: z.enum(SPRINT_STATUSES).default("planned"),
-  startDate: optionalDate,
-  endDate: optionalDate,
+  startDate: dateInput,
+  endDate: dateInput,
 });
 export type CreateSprintInput = z.infer<typeof createSprintSchema>;
+
+// Written out by hand (not `createSprintSchema.partial()`): every field optional,
+// but `goal`/dates are nullable so they can be *cleared*, and there is no
+// `.default()` to silently reset an omitted field.
+export const updateSprintSchema = z.object({
+  name: z.string().trim().min(1, "Sprint name is required").max(120).optional(),
+  goal: z.string().trim().max(500).nullable().optional(),
+  status: z.enum(SPRINT_STATUSES).optional(),
+  startDate: z.string().trim().nullable().optional(),
+  endDate: z.string().trim().nullable().optional(),
+});
+export type UpdateSprintInput = z.infer<typeof updateSprintSchema>;

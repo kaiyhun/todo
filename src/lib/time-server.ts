@@ -22,6 +22,27 @@ const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 /** The last representable millisecond of a day. */
 const END_OF_DAY = Temporal.PlainTime.from("23:59:59.999");
 
+/** The first instant of a day (shifts forward on a DST gap, like the end helper). */
+const START_OF_DAY = Temporal.PlainTime.from("00:00:00");
+
+/**
+ * Interpret a calendar date as **the start of that day in `timeZone`** and return
+ * the corresponding UTC instant — the mirror of {@link endOfDayInZone}, used for a
+ * sprint's start date.
+ */
+export function startOfDayInZone(dateOnly: string, timeZone: string): Date {
+  if (!DATE_ONLY.test(dateOnly)) {
+    throw new Error(`Expected a YYYY-MM-DD date, received "${dateOnly}"`);
+  }
+  const zone = isValidTimeZone(timeZone) ? timeZone : DEFAULT_TIMEZONE;
+
+  const zoned = Temporal.PlainDate.from(dateOnly).toZonedDateTime({
+    timeZone: zone,
+    plainTime: START_OF_DAY,
+  });
+  return new Date(zoned.toInstant().epochMilliseconds);
+}
+
 /**
  * Interpret a calendar date as **the end of that day in `timeZone`**, and return
  * the corresponding UTC instant.

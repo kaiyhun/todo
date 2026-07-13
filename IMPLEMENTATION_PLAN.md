@@ -198,6 +198,16 @@ Drag‑and‑drop board — the headline feature.
 - Inline quick‑add in each row's New cell; `New epic` dialog; sprint switcher
   (`/board?sprint=<id>` or `backlog`); epic delete cascades its tasks.
 - Keyboard DnD wired via `KeyboardSensor` + `sortableKeyboardCoordinates`.
+- **Sprint management** (added later — `actions/sprints.ts`): a "New sprint" dialog and,
+  on the selected sprint, an **Active** badge next to the title plus a `⋯` menu with
+  **Set active / Edit / Delete** (`create/update/setActive/deleteSprintAction`). Name,
+  goal, and start/end dates (converted through the workspace tz — `startOfDayInZone` /
+  `endOfDayInZone`, never `new Date()`). A workspace has **at most one active sprint** —
+  activating one (via create, edit, or set-active) demotes any other back to Planned.
+  Deleting a sprint sends its epics to the **Backlog** (`sprintId = null`); tasks follow.
+  (Before this, sprints only came from the seed, so a real workspace showed only the
+  Backlog.) `SPRINT_STATUSES` lives in the client-safe `models/enums.ts` — a Client
+  Component importing it from `models/sprint.ts` pulls the Mongo driver into the bundle.
 
 **Key files:** `app/(app)/board/page.tsx`, `components/board/*`,
 `lib/queries/board.ts`, `lib/board-state.ts`, `lib/actions/{epics,tasks}.ts`.

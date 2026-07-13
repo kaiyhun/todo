@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
-import { Columns3 } from "lucide-react";
+import { CircleCheck, Columns3 } from "lucide-react";
 import { requireContext } from "@/lib/session";
 import { getBoardData } from "@/lib/queries/board";
 import { getWorkspaceMembers } from "@/lib/queries/members";
 import { BACKLOG_VIEW } from "@/lib/board-types";
 import { formatDate } from "@/lib/format";
+import { Badge } from "@/components/ui/badge";
 import { BoardGrid } from "@/components/board/board-grid";
 import { SprintSwitcher } from "@/components/board/sprint-switcher";
+import { SprintActions } from "@/components/board/sprint-actions";
+import { CreateSprintDialog } from "@/components/board/create-sprint-dialog";
 import { CreateEpicDialog } from "@/components/board/create-epic-dialog";
 import { MineFilterToggle } from "@/components/board/mine-filter-toggle";
 
@@ -35,15 +38,25 @@ export default async function BoardPage({
     <div className="flex h-full flex-col gap-4 p-4 sm:p-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {isBacklog ? "Backlog" : (board.selectedSprint?.name ?? "Board")}
-          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {isBacklog ? "Backlog" : (board.selectedSprint?.name ?? "Board")}
+            </h1>
+            {board.selectedSprint?.status === "active" ? (
+              <Badge variant="secondary" className="gap-1">
+                <CircleCheck className="size-3" />
+                Active
+              </Badge>
+            ) : null}
+          </div>
           <p className="text-sm text-muted-foreground">
             {isBacklog
               ? "Epics that aren't scheduled into a sprint yet."
               : board.selectedSprint
                 ? (board.selectedSprint.goal ??
-                  `${formatDate(board.selectedSprint.startDate, workspace.timezone)} – ${formatDate(board.selectedSprint.endDate, workspace.timezone)}`)
+                  (board.selectedSprint.startDate || board.selectedSprint.endDate
+                    ? `${formatDate(board.selectedSprint.startDate, workspace.timezone)} – ${formatDate(board.selectedSprint.endDate, workspace.timezone)}`
+                    : "No dates set."))
                 : "No sprints yet."}
           </p>
         </div>
@@ -55,6 +68,14 @@ export default async function BoardPage({
             view={board.view}
             backlogEpicCount={board.backlogEpicCount}
           />
+          {board.selectedSprint ? (
+            <SprintActions
+              key={board.selectedSprint.id}
+              sprint={board.selectedSprint}
+              epicCount={board.rows.length}
+            />
+          ) : null}
+          <CreateSprintDialog />
           <CreateEpicDialog sprintId={sprintIdForNewEpic} />
         </div>
       </header>
