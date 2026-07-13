@@ -261,7 +261,9 @@ export function BoardGrid({
           className="grid border-b bg-muted/40"
           style={{ gridTemplateColumns: GRID_TEMPLATE }}
         >
-          <div className="sticky left-0 z-20 border-r bg-muted/40 px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          {/* Opaque (not `bg-muted/40`): as a sticky column it must hide the status
+              headers that scroll behind it, not let them show through. */}
+          <div className="sticky left-0 z-20 border-r bg-background px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             Epic
           </div>
           {TASK_STATUSES.map((status) => (
