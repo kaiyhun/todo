@@ -15,6 +15,10 @@ Deploys on Vercel Hobby. Full plan: `IMPLEMENTATION_PLAN.md`.
 - Dragging a card sideways changes `status`; dragging it into another row changes
   `epicId`. Both go through `moveTaskAction`, which rewrites the destination
   cell's `order` from the client-supplied ordered id list.
+- **Auto-claim:** dragging an *unassigned* card **out of the New column**
+  (`toStatus !== "new"`) assigns it to the mover — a "picking this up" gesture, done
+  server-side in `moveTaskAction`. Only the moved card, only when it's still
+  unassigned; it never *un*-assigns and never fires within New or via the detail form.
 
 ## Conventions
 - **Verify library APIs with the context7 MCP** before using them (this repo is

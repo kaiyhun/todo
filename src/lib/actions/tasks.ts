@@ -190,7 +190,7 @@ export async function updateTaskAction(
  * touched.
  */
 export async function moveTaskAction(input: unknown): Promise<ActionResult> {
-  const { workspace } = await requireContext();
+  const { user, workspace } = await requireContext();
 
   const parsed = moveTaskSchema.safeParse(input);
   if (!parsed.success) {
@@ -222,21 +222,37 @@ export async function moveTaskAction(input: unknown): Promise<ActionResult> {
     return { ok: false, error: "Board is out of date — please refresh" };
   }
 
+  // Dragging an *unassigned* task out of the New column claims it for the mover —
+  // a lightweight "I'm picking this up". Only the moved task, and only when it
+  // actually leaves New still unassigned.
+  const moved = await tasksCollection().findOne(
+    { _id: toObjectId(taskId), workspaceId: workspaceObjectId },
+    { projection: { status: 1, assigneeIds: 1 } },
+  );
+  const autoAssign =
+    moved?.status === "new" &&
+    toStatus !== "new" &&
+    (moved.assigneeIds?.length ?? 0) === 0;
+
   const now = new Date();
   await tasksCollection().bulkWrite(
-    orderedIds.map((id, index) => ({
-      updateOne: {
-        filter: { _id: toObjectId(id), workspaceId: workspaceObjectId },
-        update: {
-          $set: {
-            epicId: epicObjectId,
-            status: toStatus,
-            order: index,
-            updatedAt: now,
-          },
+    orderedIds.map((id, index) => {
+      const set: Record<string, unknown> = {
+        epicId: epicObjectId,
+        status: toStatus,
+        order: index,
+        updatedAt: now,
+      };
+      if (autoAssign && id === taskId) {
+        set.assigneeIds = [toObjectId(user.id)];
+      }
+      return {
+        updateOne: {
+          filter: { _id: toObjectId(id), workspaceId: workspaceObjectId },
+          update: { $set: set },
         },
-      },
-    })),
+      };
+    }),
   );
 
   revalidateTaskViews();
